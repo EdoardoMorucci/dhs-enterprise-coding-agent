@@ -350,29 +350,12 @@ L'ordine di partenza è: qualificare il modello interno, avviare un profilo azie
 
 I dati ancora necessari per fissare tempi e modello sono hardware disponibile, eventuale endpoint aziendale già attivo, data e durata del webinar. La roadmap consente di iniziare dalla qualificazione senza costruire in anticipo componenti che potrebbero non servire.
 
-## 15 Riferimento per il primo avvio di sviluppo
+## 15 Avvio dell'implementazione
 
-Questa sequenza usa PowerShell e una checkout separata dei sorgenti DSH, alla revisione scelta nella fase 0. I comandi sono ricavati dalla documentazione; il loro collaudo sulla nostra macchina è parte della fase 1. Nella checkout DSH occorre prima installare le dipendenze con il pnpm previsto dalla revisione e completare `pnpm run build`.
+L'implementazione usa il launcher aziendale e pacchetti DSH pubblicati e fissati. La [guida di installazione](installation.md) contiene i comandi effettivi per preparare la demo, configurare endpoint e modello, avviare la UI, leggere lo stato ed eseguire verifiche.
 
-Il bundle locale indicato sotto dovrà essere creato e compilato nella struttura proposta. La directory dati dedicata evita di incorporare patch e credenziali dei profili personali.
+Usare il launcher per mantenere directory dati e configurazioni separate. Le configurazioni native del runtime vengono generate dall'applicazione: esempi dei sorgenti master o comandi di installazione manuale dei provider non sostituiscono la sequenza qualificata della release scelta.
 
-```powershell
-$env:DSH_HOME = Join-Path $env:LOCALAPPDATA 'CompanyCodingAgent\internal'
+La [guida alle personalizzazioni](customization.md) collega le esigenze aziendali ai moduli da modificare. Il [runbook del webinar](webinar.md) descrive le azioni sullo schermo, mentre il [protocollo di valutazione](../evaluations/README.md) distingue misure dell'agente e test dei componenti.
 
-pnpm dsh --profile company-internal --from-default-profile web --dump-config
-pnpm dsh plugin --profile company-internal add "C:/Users/e.morucci/Desktop/Project/dsh-demo/packages/company-bundle"
-pnpm dsh --profile company-internal --dump-config
-pnpm dsh --profile company-internal
-```
-
-`--from-default-profile web` si usa per creare il profilo e va omesso negli avvii successivi. L'endpoint interno sarà configurato e verificato prima della prova senza Internet. [Riferimento CLI](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.md)
-
-Per il percorso ibrido si prepara un'altra directory dati e un nuovo profilo web, si aggiunge lo stesso bundle e infine si installano i provider:
-
-```powershell
-pnpm dsh plugin --profile company-hybrid add @deepseek-ai/dsh-subagent-codex @deepseek-ai/dsh-subagent-claude-code
-```
-
-L'abilitazione dei provider rende disponibili le deleghe; sequenza, isolamento e verifiche sono implementati dal nostro controller. Autenticazione e permessi nativi vanno qualificati prima dell'incarico dimostrativo.
-
-La ricerca di supporto è disponibile in `docs/research/2026-10-13-harness-research.md` e contiene i riferimenti estesi, le alternative considerate e i limiti dei provider.
+La ricerca di supporto è disponibile in [docs/research/2026-10-13-harness-research.md](research/2026-10-13-harness-research.md). Lo [stato della qualificazione](runtime-qualification.md) prevale su qualsiasi obiettivo futuro descritto in questa roadmap.

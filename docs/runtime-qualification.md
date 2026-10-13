@@ -20,12 +20,20 @@ Il ramo master DSH esaminato è `d743267388641bc76f17c45ce8b4c231aed1d32c`, vers
 | Creazione di un profilo dal template web | Riuscita: manifest generato con bundle base e web-app |
 | Composizione configurazione SDK minima | Riuscita |
 | Composizione web con endpoint locale e provider DeepSeek predefiniti disabilitati | Riuscita |
+| Bundle aziendale nel runtime SDK reale | Riuscita con server SSE di test deterministico: sei strumenti, accesso fuori workspace rifiutato, due richieste di correzione e stato persistente `needs_review` |
+| Avvio ripetuto del profilo Web | Riuscito: composizione ripetuta e server HTTP autenticato; corretta l'opzione ammessa solo alla prima creazione del profilo |
+| UI Web nel browser | Osservata: avviso preview, preset Company evidence workflow e modello esplicitamente configurato; nessun prompt di inferenza inviato |
+| Installazione compilata fuori dal repository | Riuscita in directory temporanea con 542 dipendenze npm, quattro moduli aziendali compilati, runtime e bridge del verificatore; lock finale dell'artefatto da congelare |
 | Esportazione dello schema della configurazione web | Fallita su quattro righe native del runtime; non usata come criterio di riuscita del nostro bundle |
 | Inferenza reale del modello interno | Non eseguita: endpoint e modello da configurare |
 | Delega nativa autenticata | Non eseguita in questa qualificazione |
 | Isolamento Docker | Da qualificare: avvio Docker Desktop tentato, ma il backend si arresta nell'inizializzazione del servizio di inferenza; il daemon non risponde entro il timeout |
 
 La composizione di una configurazione valida non dimostra che un modello sia raggiungibile o che esegua correttamente gli strumenti.
+
+Le richieste SSE controllate verificano il collegamento fra adapter, loop DSH e strumenti del prodotto. Non sono risposte di un modello e non entrano nei risultati di valutazione dell'agente. La verifica Web automatica e l'ispezione del browser sono prove del caricamento dell'interfaccia.
+
+Al termine dell'integrazione iniziale: 56 test superati e una prova Docker live esplicitamente saltata; typecheck e build riusciti. Le due regressioni successive sui confini dei percorsi portano la suite del bundle da sei a otto test, tutti superati. La revisione indipendente ha verificato anche la correzione del riutilizzo di vecchie ricevute e delle varianti maiuscole di `.git` su Windows.
 
 La diagnosi locale successiva mostra le distribuzioni WSL ferme e un errore del backend Docker relativo al listener `dockerInference` (`The file cannot be accessed by the system`). Non sono stati eseguiti reset di Docker, cancellazioni dei suoi dati o modifiche alle impostazioni globali. Questo impedimento riguarda l'ambiente di qualificazione; il percorso non isolato di sviluppo non lo sostituisce ai fini del completamento verificato.
 

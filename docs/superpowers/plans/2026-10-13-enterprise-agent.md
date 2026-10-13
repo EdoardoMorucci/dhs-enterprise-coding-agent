@@ -1,6 +1,6 @@
 # Enterprise Coding Agent Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development. Steps use checkbox (`- [x]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver an installable DSH company bundle with a reproducible coding workload, persistent task context, externally checked completion and optional native workers.
 
@@ -71,11 +71,11 @@ await assert.rejects(store.finish(id), /isolat/i);
 
 **Interfaces:** CLI commands `doctor`, `configure`, `start`, `demo reset`, `verify`, `status`; internal default. Configuration reads explicit endpoint/model and a named environment variable for credentials, never writes secrets. Runtime version is pinned using registry/source qualification. Expose `company_task_start`, `company_task_state`, `company_read_file`, `company_write_file`, `company_verify`, `company_finish`; context/pre-step and stopping hooks enforce state continuity and bounded repair attempts. File tools operate only in the selected candidate workspace. Internal profile must deny unapproved generic tools that could modify authoritative state.
 
-- [ ] Test actual DSH plugin loading, dedicated profile setup, path handling, traversal rejection and completion hooks against the installed version.
-- [ ] Wire domain modules through documented DSH APIs. Build compiled entrypoint and bundle YAML. Preserve personal DSH_HOME.
-- [ ] Show task state and evidence through DSH tools and ordinary UI; a bespoke visual panel is optional and must not delay functional integration.
-- [ ] Start actual runtime, test config dump and a deterministic protocol integration where practical. Label any protocol fixture clearly, separately from a live model qualification.
-- [ ] Commit and push a working baseline.
+- [x] Test actual DSH plugin loading, dedicated profile setup, path handling, traversal rejection and completion hooks against the installed version.
+- [x] Wire domain modules through documented DSH APIs. Build compiled entrypoint and bundle YAML. Preserve personal DSH_HOME.
+- [x] Show task state and evidence through DSH tools and ordinary UI; a bespoke visual panel is optional and must not delay functional integration.
+- [x] Start actual runtime, test config dump and a deterministic protocol integration where practical. Label any protocol fixture clearly, separately from a live model qualification.
+- [x] Commit and push a working baseline.
 
 ## Task 4: Optional native delegation
 
