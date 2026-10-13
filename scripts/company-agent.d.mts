@@ -1,4 +1,5 @@
 export function configure(input: Record<string, unknown>): Promise<any>;
+export function readConfig(root: string, profile: string): Promise<any>;
 export function profilePaths(root: string, profile: string): { home: string; base: string; state: string; patch: string; lock: string; config: string };
 export function acquireOwnership(root: string, profile: string): Promise<() => Promise<void>>;
 export function prepareProfile(root: string, profile: string, config: any, sdk?: boolean): Promise<any>;

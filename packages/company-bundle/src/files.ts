@@ -19,7 +19,7 @@ export async function rejectLinks(path: string): Promise<void> {
 async function scoped(workspace: string, path: string): Promise<string> {
   if (typeof path !== 'string' || !path || path.length > 1024 || /[\\:\x00-\x1f]/.test(path) || isAbsolute(path)) throw new Error('Invalid relative candidate path');
   const parts = path.split('/');
-  if (parts.some(part => !part || part === '.' || part === '..' || part === '.git' || /[. ]$/.test(part)
+  if (parts.some(part => !part || part === '.' || part === '..' || part.toLowerCase() === '.git' || /[. ]$/.test(part)
     || /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(part))) throw new Error('Reserved or escaping candidate path');
   const root = resolve(workspace); const target = resolve(root, ...parts); const rel = relative(root, target);
   if (!rel || isAbsolute(rel) || rel === '..' || rel.startsWith('..' + sep)) throw new Error('Path outside candidate');

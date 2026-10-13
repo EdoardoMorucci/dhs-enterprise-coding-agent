@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { readFile, writeFile, mkdir, open, rm, readdir, lstat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, open, rm, readdir, lstat, realpath } from 'node:fs/promises';
 import { dirname, join, resolve, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -43,12 +43,39 @@ function validateConfig(input) {
   if (!Number.isSafeInteger(contextWindow) || !Number.isSafeInteger(maxTokens) || maxTokens < 256 || contextWindow < maxTokens || contextWindow > 2000000) throw new Error('Invalid model capacities');
   return { version: 1, endpoint: url.href.replace(/\/$/, ''), model: input.model, apiKeyEnv: input.apiKeyEnv, workspace: resolve(input.workspace), port, contextWindow, maxTokens };
 }
+function containsPath(parent, child) {
+  const part = relative(parent, child);
+  return !part || (!isAbsolute(part) && part !== '..' && !part.startsWith('..' + sep));
+}
+async function canonicalPath(path) {
+  // Resolve existing ancestors, including Windows short-name aliases, before comparing paths.
+  const absolute = resolve(path); let ancestor = absolute;
+  for (;;) {
+    try { return resolve(await realpath(ancestor), relative(ancestor, absolute)); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; const parent = dirname(ancestor); if (parent === ancestor) throw error; ancestor = parent; }
+  }
+}
+async function validateCandidateBoundary(root, workspace) {
+  await noLinks(workspace);
+  const candidate = await canonicalPath(workspace);
+  const installation = await canonicalPath(installRoot);
+  const overlaps = path => containsPath(candidate, path) || containsPath(path, candidate);
+  for (const profile of ['internal', 'hybrid']) {
+    if (overlaps(await canonicalPath(profilePaths(root, profile).base))) throw new Error('Candidate must not overlap either protected profile data directory');
+  }
+  if (containsPath(candidate, installation)) throw new Error('Candidate must not contain the trusted installation');
+  if (!containsPath(installation, candidate)) return;
+  const managedWorkspaces = await canonicalPath(join(root, 'workspaces'));
+  if (!containsPath(managedWorkspaces, candidate)) throw new Error('Candidate inside trusted installation must use the managed workspaces subtree');
+  const assets = ['packages', 'scripts', 'distribution', 'profiles', 'company-knowledge', 'demo', 'node_modules', 'dist', 'verifier', 'docs', 'evaluations', '.git', '.github',
+    'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json', '.env', '.env.example', 'README.md'];
+  for (const asset of assets) {
+    if (overlaps(await canonicalPath(join(installRoot, asset)))) throw new Error('Candidate must not overlap trusted installation assets');
+  }
+}
 export async function configure(input) {
   const paths = profilePaths(input.root, input.profile); const config = validateConfig(input);
-  const rel = relative(config.workspace, paths.base), reverse = relative(paths.base, config.workspace);
-  const contained = part => !part || (!isAbsolute(part) && part !== '..' && !part.startsWith('..' + sep));
-  if (contained(rel) || contained(reverse)) throw new Error('Candidate and profile data directories must not overlap');
-  await noLinks(config.workspace);
+  await validateCandidateBoundary(input.root, config.workspace);
   const release = await acquireOwnership(input.root, input.profile);
   try { await noLinks(paths.config); await writeFile(paths.config, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 }); } finally { await release(); }
   return config;
@@ -57,7 +84,9 @@ export async function readConfig(root, profile) {
   const paths = profilePaths(root, profile); await noLinks(paths.config);
   let parsed; try { parsed = JSON.parse(await readFile(paths.config, 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') throw new Error('Profile is not configured. Run company-agent configure --endpoint URL --model ID --api-key-env NAME --workspace PATH'); throw error; }
-  return validateConfig(parsed);
+  const config = validateConfig(parsed);
+  await validateCandidateBoundary(root, config.workspace);
+  return config;
 }
 export function childEnvironment(config, home) {
   const keys = ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_CONFIG'];

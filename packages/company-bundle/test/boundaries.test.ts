@@ -14,8 +14,9 @@ test('candidate file operations reject traversal, links, special paths and overs
     const candidate = join(root, 'candidate with spaces'); await mkdir(candidate);
     await api.writeCandidate(candidate, 'nested/order.txt', 'safe');
     assert.equal(await api.readCandidate(candidate, 'nested/order.txt'), 'safe');
-    for (const path of ['../outside', '/outside', 'C:\\outside', 'a/../../outside', 'a:ads', '.git/config', 'NUL', 'a\\..\\outside']) {
+    for (const path of ['../outside', '/outside', 'C:\\outside', 'a/../../outside', 'a:ads', '.git/config', '.GIT/config', '.Git/config', 'nested/.gIt/config', 'NUL', 'a\\..\\outside']) {
       await assert.rejects(api.writeCandidate(candidate, path, 'unsafe'), /path|outside|reserved/i);
+      await assert.rejects(api.readCandidate(candidate, path), /path|outside|reserved/i);
     }
     const outside = join(root, 'outside'); await mkdir(outside);
     await symlink(outside, join(candidate, 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
