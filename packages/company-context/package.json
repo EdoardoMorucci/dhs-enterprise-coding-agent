@@ -1,0 +1,23 @@
+{
+  "name": "@company/company-context",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "files": [
+    "src",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@company/company-task-state": "workspace:*"
+  },
+  "devDependencies": {
+    "@company/company-verification": "workspace:*"
+  }
+}

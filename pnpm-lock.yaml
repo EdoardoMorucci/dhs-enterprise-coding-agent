@@ -18,6 +18,22 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/company-context:
+    dependencies:
+      '@company/company-task-state':
+        specifier: workspace:*
+        version: link:../company-task-state
+    devDependencies:
+      '@company/company-verification':
+        specifier: workspace:*
+        version: link:../company-verification
+
+  packages/company-task-state:
+    dependencies:
+      '@company/company-verification':
+        specifier: workspace:*
+        version: link:../company-verification
+
   packages/company-verification: {}
 
 packages:
