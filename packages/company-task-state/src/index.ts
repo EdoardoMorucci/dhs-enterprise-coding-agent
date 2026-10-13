@@ -19,6 +19,7 @@ export type TaskState = {
   reconciliationRequired: boolean;
   latestVerification: VerificationReport | null;
   latestVerificationAttempt: number | null;
+  receiptIndex: { runId: string; attempt: number }[];
   receiptReference: string | null;
   evidenceStatus: EvidenceStatus;
   createdAt: string;
@@ -83,14 +84,28 @@ function validateState(value: unknown, expectedId: string): asserts value is Tas
     if (typeof value.reconciliationRequired !== 'boolean') throw new Error('Invalid recovery');
     if (value.reconciliationRequired && value.phase !== 'needs_review') throw new Error('Invalid recovery phase');
     if (!['none', 'current', 'stale', 'unavailable'].includes(String(value.evidenceStatus))) throw new Error('Invalid evidence status');
+    if (!Array.isArray(value.receiptIndex) || value.receiptIndex.length > 3) throw new Error('Invalid receipt index');
+    const runIds = new Set<string>();
+    const receiptAttempts = new Set<number>();
+    for (const receipt of value.receiptIndex) {
+      object(receipt); safeId(receipt.runId);
+      if (!Number.isInteger(receipt.attempt) || Number(receipt.attempt) < 1 || Number(receipt.attempt) > Number(value.attempts)
+        || runIds.has(receipt.runId) || receiptAttempts.has(Number(receipt.attempt))) throw new Error('Invalid receipt identity');
+      runIds.add(receipt.runId); receiptAttempts.add(Number(receipt.attempt));
+    }
     if (value.latestVerification !== null) {
       validateReport(value.latestVerification);
+      const latestReport = value.latestVerification;
       if (Number(value.attempts) === 0 || value.receiptReference !== `${expectedId}.json#latestVerification/${value.latestVerification.runId}`
         || value.evidenceStatus === 'none') throw new Error('Invalid receipt reference');
       if (!Number.isInteger(value.latestVerificationAttempt) || Number(value.latestVerificationAttempt) < 1
         || Number(value.latestVerificationAttempt) > Number(value.attempts)) throw new Error('Invalid receipt attempt');
       if (!value.latestVerification.sourceDigest && value.evidenceStatus !== 'unavailable') throw new Error('Missing source evidence');
-    } else if (value.receiptReference !== null || value.evidenceStatus !== 'none' || value.latestVerificationAttempt !== null) throw new Error('Missing evidence');
+      if (!value.receiptIndex.some(receipt => receipt.runId === latestReport.runId
+        && receipt.attempt === value.latestVerificationAttempt)
+        || Math.max(...receiptAttempts) !== value.latestVerificationAttempt) throw new Error('Receipt attempt association mismatch');
+    } else if (value.receiptReference !== null || value.evidenceStatus !== 'none' || value.latestVerificationAttempt !== null
+      || value.receiptIndex.length !== 0) throw new Error('Missing evidence');
     if (value.phase === 'verified' && (value.latestVerification === null || !value.latestVerification.passed
       || value.latestVerification.isolation !== 'docker' || value.evidenceStatus !== 'current'
       || value.latestVerificationAttempt !== value.attempts)) throw new Error('Invalid verified state');
@@ -211,7 +226,7 @@ export class TaskStore {
       const now = new Date().toISOString();
       return this.save({ schemaVersion: 1, ...copy, workspace, phase: 'investigating', attempts: 0,
         hypotheses: [], pendingChecks: [], reconciliationRequired: false, latestVerification: null,
-        latestVerificationAttempt: null, receiptReference: null, evidenceStatus: 'none', createdAt: now, updatedAt: now, history: [] }, 'created');
+        latestVerificationAttempt: null, receiptIndex: [], receiptReference: null, evidenceStatus: 'none', createdAt: now, updatedAt: now, history: [] }, 'created');
     });
   }
   get(taskId: string): Promise<TaskState> {
@@ -264,11 +279,13 @@ export class TaskStore {
     return this.serial(async () => {
       validateReport(copy);
       const state = await this.read(taskId);
-      if (state.latestVerification?.runId === copy.runId) throw new Error('Verification report already recorded');
+      if (state.receiptIndex.some(receipt => receipt.runId === copy.runId)) throw new Error('Verification report already recorded; receipt cannot be reused');
       if (state.phase !== 'verifying' && !state.reconciliationRequired) {
         if (state.attempts >= 3) throw new Error('Verification attempt limit');
         state.attempts++;
       }
+      if (state.receiptIndex.some(receipt => receipt.attempt === state.attempts)) throw new Error('Verification attempt already has an associated receipt');
+      state.receiptIndex.push({ runId: copy.runId, attempt: state.attempts });
       state.latestVerification = copy;
       state.latestVerificationAttempt = state.attempts;
       state.receiptReference = `${taskId}.json#latestVerification/${copy.runId}`;

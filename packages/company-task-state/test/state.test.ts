@@ -203,3 +203,43 @@ test('real failed runner receipt without a source digest is persisted as unavail
   assert.equal((await new f.TaskStore(f.dataDir).get('orders')).latestVerification!.passed, false);
   await assert.rejects(f.store.finish('orders'), /passed/i);
 });
+
+test('replaying an earlier successful receipt cannot relabel it as the third attempt', async t => {
+  const f = await fixture(t);
+  const first = await receipt(f.workspace, { runId: 'first-success' });
+  await f.store.recordVerification('orders', first);
+  await f.store.recordVerification('orders', await receipt(f.workspace, { runId: 'second-failure', passed: false, checks: [{ name: 'acceptance', passed: false }] }));
+  await f.store.beginVerification('orders');
+  await assert.rejects(f.store.recordVerification('orders', first), /already recorded|reused/i);
+  const state = await f.store.get('orders');
+  assert.equal(state.phase, 'verifying');
+  assert.equal(state.latestVerification!.runId, 'second-failure');
+  assert.equal(state.latestVerificationAttempt, 2);
+  await assert.rejects(f.store.finish('orders'), /running/i);
+});
+
+test('receipt identities survive history truncation and reload during explicit interruption recovery', async t => {
+  const f = await fixture(t);
+  const first = await receipt(f.workspace, { runId: 'first-success' });
+  await f.store.recordVerification('orders', first);
+  await f.store.recordVerification('orders', await receipt(f.workspace, { runId: 'second-failure', passed: false, checks: [{ name: 'acceptance', passed: false }] }));
+  for (let i = 0; i < 40; i++) await f.store.updateInvestigation('orders', { hypotheses: [`Revision ${i}`], pendingChecks: [] });
+  await f.store.beginVerification('orders');
+  const recovered = new f.TaskStore(f.dataDir);
+  await recovered.recoverInterrupted('orders');
+  await assert.rejects(recovered.recordVerification('orders', first), /already recorded|reused/i);
+  assert.equal((await recovered.get('orders')).reconciliationRequired, true);
+  await assert.rejects(recovered.finish('orders'), /reconcil/i);
+  await recovered.recordVerification('orders', await receipt(f.workspace, { runId: 'third-success' }));
+  assert.equal((await recovered.finish('orders')).phase, 'verified');
+});
+
+test('stored receipt identity inconsistent with its attempt is rejected as corrupt', async t => {
+  const f = await fixture(t);
+  await f.store.recordVerification('orders', await receipt(f.workspace));
+  const file = join(f.dataDir, 'orders.json');
+  const state = JSON.parse(await readFile(file, 'utf8'));
+  state.receiptIndex = [{ runId: 'host-run-1', attempt: 2 }];
+  await writeFile(file, JSON.stringify(state));
+  await assert.rejects(new f.TaskStore(f.dataDir).get('orders'), /corrupt/i);
+});

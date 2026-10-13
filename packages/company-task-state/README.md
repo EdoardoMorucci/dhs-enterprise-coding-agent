@@ -14,6 +14,8 @@ await store.finish(taskId);
 
 `recordVerification` is a trusted host API, never a model tool accepting arbitrary arguments. It snapshots and validates the verifier's report and atomically embeds the latest authoritative receipt in the task file. `receiptReference` identifies that task file and run. A direct host `recordVerification` without `beginVerification` counts an attempt too, for callers using only the required minimal interface. The initial verification plus two repairs consumes at most three attempts. Failed, stale, unisolated, malformed, or older-attempt evidence cannot finish.
 
+A persisted `receiptIndex` binds each recorded run id to its consumed attempt. Its maximum three entries remain independent of the bounded event history. Replaying any recorded receipt is rejected, including after reload and interruption recovery; each attempt may have only one associated receipt. Storage missing this index fails closed rather than migrating with incomplete historical identities.
+
 `get` refreshes evidence against the whole candidate fingerprint. Changed or unreadable candidate contents downgrade verified tasks to `needs_review`; the original receipt remains available with `stale` or `unavailable` status. Restoring exact contents does not automatically restore the verified phase: the host must call `finish` again. Ordinary reads preserve running verification.
 
 The verifier can fail before a candidate digest exists. Such failed receipts retain their empty digest with `unavailable` evidence status; a successful receipt must always contain a valid SHA-256 digest.
