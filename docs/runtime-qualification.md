@@ -23,9 +23,11 @@ Il ramo master DSH esaminato è `d743267388641bc76f17c45ce8b4c231aed1d32c`, vers
 | Esportazione dello schema della configurazione web | Fallita su quattro righe native del runtime; non usata come criterio di riuscita del nostro bundle |
 | Inferenza reale del modello interno | Non eseguita: endpoint e modello da configurare |
 | Delega nativa autenticata | Non eseguita in questa qualificazione |
-| Isolamento Docker | Da qualificare: Docker Desktop avviato, daemon non disponibile alla prima prova con timeout |
+| Isolamento Docker | Da qualificare: avvio Docker Desktop tentato, ma il backend si arresta nell'inizializzazione del servizio di inferenza; il daemon non risponde entro il timeout |
 
 La composizione di una configurazione valida non dimostra che un modello sia raggiungibile o che esegua correttamente gli strumenti.
+
+La diagnosi locale successiva mostra le distribuzioni WSL ferme e un errore del backend Docker relativo al listener `dockerInference` (`The file cannot be accessed by the system`). Non sono stati eseguiti reset di Docker, cancellazioni dei suoi dati o modifiche alle impostazioni globali. Questo impedimento riguarda l'ambiente di qualificazione; il percorso non isolato di sviluppo non lo sostituisce ai fini del completamento verificato.
 
 ## Decisioni di integrazione
 

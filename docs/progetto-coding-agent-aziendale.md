@@ -6,7 +6,7 @@ Costruiremo una distribuzione aziendale di DeepSeek Harness, configurabile, modi
 
 Il primo traguardo è un prototipo distribuibile e verificato per un webinar rivolto a sviluppatori e IT. La correzione di un bug in un'applicazione di prova mostrerà il prodotto al lavoro. Le personalizzazioni principali saranno il contesto aziendale, la memoria del lavoro e la verifica dei risultati.
 
-Questa è la proposta di architettura e la roadmap di sviluppo. Componenti, percorsi e criteri contrassegnati come nostri sono da realizzare; le API DSH citate sono punti di integrazione documentati. Il prototipo non è ancora implementato.
+Questo documento conserva la proposta di architettura e la roadmap approvate. L'implementazione procede per incrementi nella repository: il [README](../README.md) descrive i comandi disponibili e la [qualificazione del runtime](runtime-qualification.md) distingue le prove eseguite da quelle ancora necessarie. Le fasi e i criteri seguenti sono obiettivi, non dichiarazioni di collaudo completato.
 
 ## 1 Risultato da consegnare
 
@@ -166,7 +166,7 @@ Se l'hardware non sostiene il modello previsto, valuteremo un modello più picco
 
 I provider ufficiali avviano vere sessioni dei rispettivi prodotti. Sono deleghe autonome e restituiscono al padre il risultato finale o un errore. Configurazione e autenticazione native restano rilevanti; non bisogna presumere isolamento automatico, continuazione della sessione delegata o un flusso completo degli eventi interni. [Provider Codex](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/subagent/subagent-codex/README.md), [provider Claude Code](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/subagent/subagent-claude-code/README.md)
 
-La directory di lavoro può essere indicata con `cwd` per incarico; se omessa viene ereditata dal chiamante. Il controller la imposterà esplicitamente sulla copia di lavoro o sullo snapshot di revisione. Selezionare una directory non limita da solo l'accesso agli altri percorsi. [Implementazione del tool di delega](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/subagent/tool-subagent/src/index.ts)
+La release pubblicata selezionata, `0.2.0-rc.2`, eredita la directory dalla sessione padre. Il controller creerà quindi una sessione dedicata con `meta.cwd` impostato sulla copia di lavoro o sullo snapshot di revisione, prima di avviare il provider. L'override `cwd` per singolo incarico presente in sorgenti successivi non viene assunto disponibile. Selezionare una directory non limita da solo l'accesso agli altri percorsi. [Qualificazione delle API effettive](runtime-qualification.md)
 
 ### Sequenza della mini demo
 
@@ -212,7 +212,7 @@ dsh-demo/
   docs/                     progetto, installazione e conduzione webinar
 ```
 
-TypeScript è la scelta iniziale per i plugin. Lo schema del lavoro userà lo storage di dominio DSH, con backend locale da fissare nella qualificazione. Sceglieremo per l'applicazione di prova uno stack piccolo, preferibilmente già familiare al team, con dipendenze disponibili offline.
+TypeScript è il linguaggio dei plugin. Il primo prototipo conserva lo schema del lavoro in uno store JSON locale nostro, posseduto da un solo processo e separato dal workspace candidato. DSH conserva le sessioni; lo stato autorevole del task mantiene un contratto indipendente dal suo backend. L'applicazione di prova usa moduli JavaScript e il server HTTP di Node, senza dipendenze applicative esterne.
 
 Questa struttura descrive il sorgente. Durante l'esecuzione, suite, attestazioni e impostazioni autorevoli saranno collocate fuori dal workspace modificabile. Una cartella diversa nello stesso repository non basta a renderle protette.
 
