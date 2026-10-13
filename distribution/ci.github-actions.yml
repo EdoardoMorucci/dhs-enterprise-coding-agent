@@ -1,0 +1,63 @@
+# Activation: copy to .github/workflows/ci.yml using GitHub access with workflow scope.
+# This template is inactive; it is not evidence that CI has run.
+name: Validate enterprise agent
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.30.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm -r build
+      - run: pnpm test
+      - name: Frozen portable build and external npm ci smoke
+        run: node distribution/qualify.mjs
+
+  isolated-verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.30.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare candidate runtime
+        run: |
+          docker pull node:24.13.0-alpine
+          docker image inspect node:24.13.0-alpine --format '{{json .RepoDigests}}'
+      - name: Exercise the real isolated verifier
+        run: pnpm --filter @company/company-verification test
+        env:
+          COMPANY_VERIFICATION_DOCKER: '1'
+      - name: Build scoped company integration
+        run: pnpm build
+      - name: Verify private scoped company edits in Docker
+        run: node --import tsx --test packages/company-bundle/test/docker.test.ts
+        env:
+          COMPANY_VERIFICATION_DOCKER: '1'

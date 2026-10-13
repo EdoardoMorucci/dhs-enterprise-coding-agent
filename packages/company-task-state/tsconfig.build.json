@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "paths": {
+      "@company/company-verification": ["../company-verification/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

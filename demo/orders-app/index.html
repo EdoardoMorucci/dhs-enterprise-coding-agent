@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orders retry demo</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 3rem auto; padding: 0 1rem; }
+  label { display: block; margin: 1rem 0; } input { padding: .4rem; }
+  button { padding: .6rem; margin-right: .5rem; } td, th { padding: .6rem; text-align: left; }
+  table { width: 100%; border-collapse: collapse; } tr { border-bottom: 1px solid #ddd; }
+</style>
+<h1>Orders retry demo</h1>
+<p>The seed contains a retry bug. Orders are kept in memory and disappear on restart.</p>
+<form id="form">
+  <label>Customer <input id="customer" value="Ada" required></label>
+  <label>Quantity <input id="quantity" type="number" min="1" step="1" value="2" required></label>
+  <label><input id="timeout" type="checkbox" checked> Simulate timeout after the first commit</label>
+  <button type="submit">Create new request</button>
+  <button type="button" id="retry" disabled>Retry same request</button>
+</form>
+<p id="request"></p>
+<p id="status" role="status" aria-live="polite"></p>
+<h2>Committed orders</h2>
+<table><thead><tr><th>Order</th><th>Request</th><th>Customer</th><th>Quantity</th></tr></thead><tbody id="orders"></tbody></table>
+<script type="module">
+  let pending;
+  const byId = id => document.getElementById(id);
+  async function refresh() {
+    const orders = await (await fetch('/api/orders')).json();
+    byId('orders').replaceChildren(...orders.map(order => {
+      const row = document.createElement('tr');
+      for (const key of ['id', 'requestId', 'customer', 'quantity']) {
+        const cell = document.createElement('td'); cell.textContent = order[key]; row.append(cell);
+      }
+      return row;
+    }));
+  }
+  async function send(simulate) {
+    byId('retry').disabled = true;
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-demo-timeout': String(simulate) },
+        body: JSON.stringify(pending)
+      });
+      const result = await response.json();
+      byId('status').textContent = response.ok ? `Received order ${result.id}.` : result.error;
+      await refresh();
+    } catch (error) { byId('status').textContent = `Response unavailable: ${error.message}. Retry the same request.`; }
+    finally { byId('retry').disabled = false; }
+  }
+  byId('form').addEventListener('submit', event => {
+    event.preventDefault();
+    pending = { requestId: crypto.randomUUID(), customer: byId('customer').value, quantity: Number(byId('quantity').value) };
+    byId('request').textContent = `Request: ${pending.requestId}`;
+    send(byId('timeout').checked);
+  });
+  byId('retry').addEventListener('click', () => send(false));
+  refresh().catch(error => { byId('status').textContent = error.message; });
+</script>
+</html>

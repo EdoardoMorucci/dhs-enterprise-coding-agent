@@ -1,0 +1,12 @@
+export function configure(input: Record<string, unknown>): Promise<any>;
+export function readConfig(root: string, profile: string): Promise<any>;
+export function profilePaths(root: string, profile: string): { home: string; base: string; state: string; patch: string; lock: string; config: string };
+export function acquireOwnership(root: string, profile: string): Promise<() => Promise<void>>;
+export function prepareProfile(root: string, profile: string, config: any, sdk?: boolean): Promise<any>;
+export function profilePatch(config: any, paths: any, sdk?: boolean): any[];
+export function runtimeBin(): string;
+export function runtimeArguments(paths: any): Promise<string[]>;
+export function childEnvironment(config: any, home: string): NodeJS.ProcessEnv;
+export function boundedCommand(command: string, args: string[], options?: any): Promise<any>;
+export function status(root: string, profile: string): Promise<any>;
+export const installRoot: string;

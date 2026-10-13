@@ -1,0 +1,15 @@
+{
+  "name": "@company/company-bundle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }, "./package.json": "./package.json", "./patch.yaml": "./patch.yaml" },
+  "dsh": { "bundle": { "patch": "./patch.yaml" } },
+  "files": ["dist", "patch.yaml", "runtime"],
+  "scripts": { "build": "tsc -p tsconfig.build.json", "test": "node --import tsx --test --test-concurrency=1 test/*.test.ts", "typecheck": "tsc -p ../../tsconfig.json" },
+  "dependencies": { "@company/company-task-state": "workspace:*", "@company/company-context": "workspace:*", "@company/company-verification": "workspace:*", "@company/company-delegation": "workspace:*" },
+  "peerDependencies": { "@deepseek-ai/cordis": "4.0.4", "@deepseek-ai/dsh-tools": "0.2.0-rc.2", "@deepseek-ai/dsh-agent": "0.2.0-rc.2", "@deepseek-ai/dsh-llm": "0.2.0-rc.2", "@deepseek-ai/dsh-session": "0.2.0-rc.2", "@deepseek-ai/dsh-system-prompt": "0.2.0-rc.2" },
+  "devDependencies": { "@deepseek-ai/cordis": "4.0.4", "@deepseek-ai/dsh-tools": "0.2.0-rc.2", "@deepseek-ai/dsh-agent": "0.2.0-rc.2", "@deepseek-ai/dsh-llm": "0.2.0-rc.2", "@deepseek-ai/dsh-session": "0.2.0-rc.2", "@deepseek-ai/dsh-system-prompt": "0.2.0-rc.2", "@deepseek-ai/dsh-sdk-client": "0.2.0-rc.2" }
+}
