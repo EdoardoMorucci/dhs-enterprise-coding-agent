@@ -55,3 +55,9 @@ jobs:
         run: pnpm --filter @company/company-verification test
         env:
           COMPANY_VERIFICATION_DOCKER: '1'
+      - name: Build scoped company integration
+        run: pnpm build
+      - name: Verify private scoped company edits in Docker
+        run: node --import tsx --test packages/company-bundle/test/docker.test.ts
+        env:
+          COMPANY_VERIFICATION_DOCKER: '1'

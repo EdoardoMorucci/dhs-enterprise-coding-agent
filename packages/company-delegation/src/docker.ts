@@ -3,7 +3,7 @@ import { lstat, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { UncertainOutcome, type WorkerCall, type WorkerResult } from './index.ts';
 import { parseRequest, parseTerminal, type WorkerRequest } from './protocol.ts';
-import { checkBindPermissions, currentHostIdentity, selectWorkerIdentity, type HostIdentity, type WorkerIdentity } from './identity.ts';
+import { assertDockerIdentity, checkBindPermissions, currentHostIdentity, selectWorkerIdentity, type HostIdentity, type WorkerIdentity } from './identity.ts';
 export { parseTerminal } from './protocol.ts';
 export type DockerConfig = { image: string; writerCredential: string; reviewerCredential: string; timeoutMs?: number };
 export type Transport = (args: string[], input?: string, signal?: AbortSignal, timeoutMs?: number) => Promise<{ code: number; stdout: string }>;
@@ -41,14 +41,9 @@ export class DockerAdapter {
   private async localImage(signal?: AbortSignal): Promise<string> {
     const context = await this.command(['context', 'inspect'], undefined, signal); if (context.code !== 0) throw new Error('Local Docker context unavailable');
     const endpoint = JSON.parse(context.stdout)?.[0]?.Endpoints?.docker?.Host;
-    // Explicit environment hosts override context; both must be local transports.
-    if (!/^(unix:\/\/|npipe:\/\/)/.test(endpoint ?? '') || (process.env.DOCKER_HOST && !/^(unix:\/\/|npipe:\/\/)/.test(process.env.DOCKER_HOST))) throw new Error('Remote Docker contexts are unsupported');
-    const effectiveEndpoint = process.env.DOCKER_HOST ?? endpoint;
-    if (!(this.identity.workerIdentity.policy === 'linux-host' ? /^unix:\/\// : /^npipe:\/\//).test(effectiveEndpoint)) throw new Error('Native identity requires local rootful Linux Docker or Windows Docker Desktop named-pipe transport');
     const security = await this.command(['info', '--format', '{{json .SecurityOptions}}'], undefined, signal);
     if (security.code !== 0) throw new Error('Docker identity mapping information unavailable');
-    const securityOptions: unknown = JSON.parse(security.stdout);
-    if (!Array.isArray(securityOptions) || !securityOptions.every(value => typeof value === 'string') || securityOptions.some(value => /rootless|userns/i.test(value))) throw new Error('Rootless or user-namespace Docker mapping is unsupported for native bind permissions; use local rootful Docker as a non-root host user');
+    assertDockerIdentity(endpoint, process.env.DOCKER_HOST, JSON.parse(security.stdout), this.identity.workerIdentity);
     const inspected = await this.command(['image', 'inspect', this.config.image], undefined, signal);
     if (inspected.code !== 0) throw new Error('Pinned Linux native worker image unavailable; build and select its immutable identity');
     const image = JSON.parse(inspected.stdout)?.[0];

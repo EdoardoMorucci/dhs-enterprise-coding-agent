@@ -12,6 +12,7 @@ async function readBoundedFile(path: string, availableBytes: number): Promise<Bu
   try {
     const stat = await file.stat();
     if (!stat.isFile()) throw new Error('Special input rejected');
+    if (stat.nlink !== 1) throw new Error('Hardlink input rejected');
     if (stat.size > availableBytes) throw new Error('Workspace input limit exceeded');
     const chunks: Buffer[] = [];
     let total = 0;
@@ -60,6 +61,7 @@ export async function readWorkspace(workspace: string): Promise<WorkspaceEntry[]
       const stat = await lstat(absolute);
       if (stat.isSymbolicLink()) throw new Error(`Symlink input rejected: ${path}`);
       if (!stat.isDirectory() && !stat.isFile()) throw new Error(`Special input rejected: ${path}`);
+      if (stat.isFile() && stat.nlink !== 1) throw new Error(`Hardlink input rejected: ${path}`);
       if (entries.length >= MAX_ENTRIES) throw new Error('Workspace input limit exceeded');
       const data = stat.isFile() ? await readBoundedFile(absolute, MAX_BYTES - bytes) : null;
       bytes += data?.length ?? 0;

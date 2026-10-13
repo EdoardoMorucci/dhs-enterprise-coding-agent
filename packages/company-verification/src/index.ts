@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertNoSymlinkAncestors, digestEntries, fingerprintWorkspace, readWorkspace } from './fingerprint.ts';
+import { verificationDockerArguments, verificationIdentity } from './container.ts';
+export { checkBindPermissions, currentHostIdentity, selectWorkerIdentity, assertPosixPermission, assertDockerIdentity, type HostIdentity, type WorkerIdentity } from './container.ts';
 import { CandidateProcess } from './process.ts';
 import { runHostSuite, SUITE_VERSION, type VerificationCheck } from './suite.ts';
 
@@ -69,14 +71,8 @@ export async function runVerification(options: VerificationOptions): Promise<Ver
     if (options.mode === 'process') {
       candidate = new CandidateProcess(process.execPath, [BRIDGE, join(snapshot, 'orders.mjs')], snapshot, timeoutMs);
     } else {
-      candidate = new CandidateProcess('docker', [
-        'run', '--rm', '--pull=never', '--name', containerName!, '-i',
-        '--network=none', '--read-only', '--user=65534:65534', '--cap-drop=ALL',
-        '--security-opt=no-new-privileges', '--pids-limit=64', '--memory=128m', '--cpus=0.5',
-        '--mount', `type=bind,source=${snapshot},target=/candidate,readonly`,
-        '--mount', `type=bind,source=${BRIDGE},target=/bridge.mjs,readonly`,
-        '--workdir=/candidate', DOCKER_IMAGE, 'node', '/bridge.mjs', '/candidate/orders.mjs'
-      ], temporary, timeoutMs);
+      const identity = await verificationIdentity(snapshot, BRIDGE);
+      candidate = new CandidateProcess('docker', verificationDockerArguments({ snapshot, bridge: BRIDGE, name: containerName!, image: DOCKER_IMAGE }, identity), temporary, timeoutMs);
     }
     checks.push(...await runHostSuite(candidate));
     await candidate.stop(containerName);

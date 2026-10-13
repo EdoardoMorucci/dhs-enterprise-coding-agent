@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { link, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 test('Linux workers use the non-root host identity and preserve private credential permissions', async () => {
   const api = await import('../src/identity.ts').catch(() => null); assert.ok(api, 'explicit native identity policy must exist');
   const identity = api.selectWorkerIdentity({ platform: 'linux', uid: 1000, gid: 1000 });
@@ -11,4 +14,17 @@ test('Linux workers use the non-root host identity and preserve private credenti
   assert.throws(() => api.assertPosixPermission({ uid: 2000, gid: 2000, mode: 0o600 }, identity, 4, true), /permission|owner/i);
   for (const host of [{ platform: 'linux', uid: 0, gid: 0 }, { platform: 'linux', uid: 1000, gid: 0 }, { platform: 'darwin', uid: 501, gid: 20 }]) assert.throws(() => api.selectWorkerIdentity(host), /unsupported|non-root/i);
   assert.deepEqual(api.selectWorkerIdentity({ platform: 'win32' }), { policy: 'windows-desktop', uid: 10001, gid: 10001 });
+});
+
+test('native preflight rejects external hardlinks on Windows before any Docker command', async () => {
+  const { DockerAdapter } = await import('../src/docker.ts');
+  const root = await mkdtemp(join(tmpdir(), 'native-hardlink-'));
+  try {
+    const workspace = join(root, 'candidate'); await mkdir(workspace); const outside = join(root, 'outside.mjs'), credential = join(root, 'selected.json');
+    await writeFile(outside, 'external-original'); await writeFile(credential, '{}', { mode: 0o600 }); await link(outside, join(workspace, 'orders.mjs'));
+    let commands = 0;
+    const adapter = new DockerAdapter({ image: 'sha256:' + 'a'.repeat(64), writerCredential: credential, reviewerCredential: credential }, async () => { commands++; throw new Error('Unexpected Docker dispatch'); }, { platform: 'win32' });
+    await assert.rejects(adapter.run({ runId: '11111111-1111-4111-8111-111111111111', role: 'writer', provider: 'codex', brief: 'repair', cwd: workspace, signal: new AbortController().signal }), /hard.?link/i);
+    assert.equal(commands, 0); assert.equal(await readFile(outside, 'utf8'), 'external-original');
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
