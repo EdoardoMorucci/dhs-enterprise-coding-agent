@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.cache/
+.superpowers/
+.playwright-mcp/
+.env
+.env.*
+!.env.example
+.dsh/
+.company-agent/
+artifacts/
+*.tgz
+*.log
