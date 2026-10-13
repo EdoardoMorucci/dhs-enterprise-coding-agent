@@ -83,10 +83,10 @@ await assert.rejects(store.finish(id), /isolat/i);
 
 **Interfaces:** Sequential controller consumes a provider adapter with `run({provider,brief,cwd,signal})`; records dispatch/result/error and never grants verified status. Codex implementation uses explicit candidate cwd, Claude review uses an isolated snapshot, then parent verifier runs again. Native DSH adapters must be real provider calls, not canned responses.
 
-- [ ] Write failing sequence tests including timeout, failed worker, cancellation, uncertain restart and review isolation unavailable.
-- [ ] Implement persisted orchestration, complete briefs, abort propagation and reconciliation. Enforce one writer. Fail closed when required isolation or provider authentication is unavailable.
-- [ ] Qualify available native CLIs without reading or committing credentials; only report live success for an observed successful invocation.
-- [ ] Run tests/typecheck and commit. Internal profile remains independent of these providers.
+- [x] Write failing sequence tests including timeout, failed worker, cancellation, uncertain restart and review isolation unavailable.
+- [x] Implement persisted orchestration, complete briefs, abort propagation and reconciliation. Enforce one writer. Fail closed when required isolation or provider authentication is unavailable.
+- [x] Qualify available native CLIs without reading or committing credentials; only report live success for an observed successful invocation.
+- [x] Run tests/typecheck and commit. Internal profile remains independent of these providers.
 
 ## Task 5: Distribution, integration and handover
 
