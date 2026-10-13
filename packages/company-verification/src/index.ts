@@ -36,7 +36,7 @@ export async function runVerification(options: VerificationOptions): Promise<Ver
   const workspace = resolve(options.workspace);
   const artifacts = resolve(options.artifactsDir);
   const artifactRelative = relative(workspace, artifacts);
-  if (!artifactRelative || (!artifactRelative.startsWith('..' + (process.platform === 'win32' ? '\\' : '/')) && !isAbsolute(artifactRelative))) {
+  if (!artifactRelative || (artifactRelative !== '..' && !artifactRelative.startsWith('..' + (process.platform === 'win32' ? '\\' : '/')) && !isAbsolute(artifactRelative))) {
     throw new Error('Authoritative artifacts must be outside the candidate workspace');
   }
   await assertNoSymlinkAncestors(artifacts);

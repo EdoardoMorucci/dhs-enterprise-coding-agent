@@ -20,6 +20,8 @@ export class CandidateProcess {
   private buffer = '';
   private outputBytes = 0;
   private nextId = 0;
+  private shutdownRequested = false;
+  private dockerShutdownRequested = false;
   private readonly timer: NodeJS.Timeout;
   private readonly closed: Promise<void>;
 
@@ -32,7 +34,14 @@ export class CandidateProcess {
     this.closed = new Promise(resolve => this.child.once('close', () => resolve()));
     this.timer = setTimeout(() => this.fail(new Error('Candidate timeout exceeded')), timeoutMs);
     this.child.once('error', error => this.fail(error));
-    this.child.once('exit', (code, signal) => this.fail(new Error(`Candidate exited: ${code ?? signal}`)));
+    this.child.once('exit', (code, signal) => {
+      const expectedHostExit = this.shutdownRequested && (
+        signal === 'SIGKILL' ||
+        (process.platform === 'win32' && code === 1) ||
+        (this.dockerShutdownRequested && (code === 0 || code === 137))
+      );
+      if (!expectedHostExit) this.fail(new Error(`Candidate exited: ${code ?? signal}`));
+    });
     this.child.stdin.on('error', error => this.fail(error));
     this.child.stderr.on('data', (chunk: Buffer) => this.countOutput(chunk));
     this.child.stdout.on('data', (chunk: Buffer) => {
@@ -82,11 +91,17 @@ export class CandidateProcess {
     // Always remove the named container even if the Docker client has already exited.
     let dockerCleanupFailed = false;
     let treeCleanupFailed = false;
-    if (containerName) dockerCleanupFailed = !await boundedCommand('docker', ['rm', '-f', containerName]);
+    if (containerName) {
+      this.shutdownRequested = true;
+      this.dockerShutdownRequested = true;
+      dockerCleanupFailed = !await boundedCommand('docker', ['rm', '-f', containerName]);
+    }
     if (process.platform === 'win32' && this.child.pid) {
       const running = this.child.exitCode === null && this.child.signalCode === null;
+      this.shutdownRequested = true;
       treeCleanupFailed = !await boundedCommand('taskkill', ['/pid', String(this.child.pid), '/T', '/F']) && running;
     } else if (this.child.pid) {
+      this.shutdownRequested = true;
       try { process.kill(-this.child.pid, 'SIGKILL'); } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
       }
@@ -98,5 +113,8 @@ export class CandidateProcess {
     })]);
     if (dockerCleanupFailed) throw new Error('Docker container removal was not confirmed');
     if (treeCleanupFailed) throw new Error('Candidate process tree cleanup was not confirmed');
+    if (this.buffer.length > 0) this.fail(new Error('Incomplete candidate protocol output'));
+    // A resolved final RPC is not a verdict: drain/cleanup may still expose bad output or a crash.
+    if (this.failure) throw this.failure;
   }
 }

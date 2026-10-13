@@ -160,3 +160,33 @@ test('timeout cleanup stops the running candidate child process tree', async t =
   const pid = Number(await readFile(marker, 'utf8'));
   assert.throws(() => process.kill(pid, 0), /ESRCH|not found/i);
 });
+
+test('late malformed protocol output invalidates an otherwise passing behavioral report', async t => {
+  const runner = await api();
+  const options = await fixture(t);
+  const reference = await readFile(join(options.workspace, 'orders.mjs'), 'utf8');
+  await writeFile(join(options.workspace, 'orders.mjs'), reference + `
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    let conflicts = 0;
+    process.stdout.write = function(chunk, ...args) {
+      const reply = JSON.parse(String(chunk));
+      if (reply.ok === false && reply.error.includes('already used')) conflicts++;
+      if (conflicts === 2 && reply.ok && reply.value?.requestId === 'req-1') {
+        return originalWrite(String(chunk) + 'invalid-protocol-tail\\n', ...args);
+      }
+      return originalWrite(chunk, ...args);
+    };
+  `);
+  const report = await runner.runVerification(options);
+  assert.equal(report.checks.filter(check => ['normal-order', 'retry-after-timeout', 'distinct-requests', 'validation', 'conflicting-reuse'].includes(check.name) && check.passed).length, 5);
+  assert.equal(report.passed, false);
+  assert.match(JSON.stringify(report.checks), /protocol/i);
+});
+
+test('parent artifact directory is outside the candidate and accepts evidence', async t => {
+  const runner = await api();
+  const options = await fixture(t);
+  const report = await runner.runVerification({ ...options, artifactsDir: options.root });
+  assert.equal(report.passed, true, JSON.stringify(report.checks));
+  assert.equal(JSON.parse(await readFile(join(options.root, report.runId, 'report.json'), 'utf8')).passed, true);
+});
