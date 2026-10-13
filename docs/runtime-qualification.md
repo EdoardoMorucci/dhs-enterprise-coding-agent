@@ -54,6 +54,20 @@ Al termine dell'integrazione finale, dopo le correzioni dei confini in `a864f5a`
 
 L'artefatto precedente da `f6bb893` resta una prova storica di installazione e non contiene le ultime correzioni ai confini. Per la consegna usare una ricostruzione dal commit pulito corretto; il rapporto esterno deve indicare `sourceDirty=false`, revisione esatta, inventario e hash del manifest, separatamente dall'artefatto.
 
+## Prova live cloud del 13 ottobre 2026
+
+Alle 17:25–17:26 Europe/Rome è stata eseguita dalla UI Web una correzione reale con `deepseek/deepseek-v4-flash` tramite l'endpoint OpenRouter, usando una credenziale già presente nell'ambiente senza salvarne il valore. È stato usato un profilo `hybrid` dedicato, senza delega nativa configurata. La prima prova con Claude Sonnet 4.6 si era fermata prima degli strumenti per HTTP 402 (limite di credito); una breve richiesta preliminare aveva invece ricevuto risposta. Il passaggio a DeepSeek è stato esplicito.
+
+Il modello ha chiamato gli strumenti aziendali per avviare il task, leggere `orders.mjs`, salvare un'ipotesi, scrivere la correzione e richiedere la verifica. Il codice generato usa una mappa per `requestId`, restituisce l'ordine esistente per retry identici e rifiuta conflitti. Dopo il riavvio del server della stessa copia, la sequenza timeout dopo commit → retry ha mostrato un solo ordine nel browser. Il seed nel repository è rimasto difettoso per le prove successive.
+
+Le tre verifiche Docker hanno fallito sul controllo dell'identità del daemon. I due giri di riparazione del middleware hanno ripetuto la verifica benché il prompt chiedesse di fermarsi al blocco infrastrutturale; questo comportamento è osservato, non presentato come recupero riuscito. `company_finish` ha rifiutato la consegna e lo stato persistito finale è `needs_review`, con tre tentativi. La scritta UI «Completed» indica la fine della generazione e non l'accettazione aziendale del task. Le affermazioni del modello sulla correttezza non sono ricevute del verificatore.
+
+Una successiva diagnostica host separata in modalità `process` ha accettato il candidato sugli otto controlli, inclusi retry, richieste distinte, validazione e conflitti. È esplicitamente priva di isolamento e non è stata associata al task né usata per sbloccare la consegna. Digest candidato: `6d6aab14fc1f999302c3f4a8f65234e008c253b2a289bceedbd5a607b3a0577d`; ricevuta diagnostica: `843b7575-d949-483d-8c45-0a411e6964a2`.
+
+La prova ha anche riprodotto un limite del launcher: il catalogo OpenRouter di 770.930 byte superava il vecchio limite di 256 KiB. La correzione `c8cae8a` legge il corpo in streaming, accetta fino a 2 MiB e cancella risposte eccedenti; conserva timeout, rifiuto dei redirect e corrispondenza esatta del modello. Sette regressioni HTTP locali passano, il controllo sul catalogo reale ora riesce e la suite completa successiva passa con **100 test riusciti, zero fallimenti e due prove Docker saltate**; build e typecheck passano. Il pacchetto precedente qualificato da `20eef89` precede questa correzione; il nuovo test di packaging passa, ma l'installazione consumer completa non è stata ripetuta per questo solo cambiamento.
+
+Questa prova documenta inferenza cloud e strumenti reali. Non qualifica inferenza interna, isolamento Docker, funzionamento offline o worker nativi autenticati; non costituisce un benchmark comparativo.
+
 ## Decisioni di integrazione
 
 L'avvio usa la CLI DSH e profili dedicati. Il bundle aziendale esporta un plugin ESM compilato e una patch dichiarata nel manifest. Le informazioni di sessione vengono ricaricate prima del passo dell'agente; il fornitore sincrono di contesto usa una copia già caricata dello stato.

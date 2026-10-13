@@ -4,7 +4,7 @@ Distribuzione aziendale di [DeepSeek Harness](https://github.com/deepseek-ai/dee
 
 Il profilo interno collega un endpoint esplicito compatibile OpenAI, espone strumenti limitati alla copia di lavoro e conserva lo stato del task. La prima applicazione è una demo ordini con un bug di duplicazione su retry. L'estensione ibrida esegue Codex, verifica indipendente, revisione Claude Code su snapshot e verifica finale attraverso worker Docker sequenziali.
 
-È un prototipo per sviluppatori e IT. Runtime, strumenti e installazione indipendente sono stati provati; una correzione con un modello reale richiede ancora la qualificazione dell'ambiente.
+È un prototipo per sviluppatori e IT. Runtime, strumenti e installazione indipendente sono stati provati. Una prova live con DeepSeek V4 Flash via OpenRouter ha prodotto la correzione del retry, osservata nel browser e accettata dalla diagnostica senza isolamento. Il task resta `needs_review`: Docker non disponibile impedisce il completamento verificato.
 
 ## Progetto
 
@@ -45,6 +45,7 @@ Il verificatore indipendente è in `packages/company-verification`. La modalità
 - Demo e verificatore: test comportamentali, compilazione e controllo TypeScript verificati su Windows.
 - DSH pubblicato `0.2.0-rc.2`: strumenti eseguiti tramite runtime reale con risposte di protocollo controllate, avvio web autenticato e preset osservato nel browser; [dettagli e limiti](docs/runtime-qualification.md).
 - Pacchetto compilato: lock npm mantenuto nella distribuzione, inventario con hash e installazione tramite `npm ci`; [procedura e risultati](docs/runtime-qualification.md).
+- Prova live cloud: strumenti aziendali, modifica e note prodotti da un modello reale; verifica Docker fallita e consegna bloccata. Non è una prova di inferenza interna o di delega Codex/Claude.
 - Modello interno, worker autenticati e isolamento Docker: qualificazione sull'ambiente finale ancora necessaria.
 - Il [workflow CI](distribution/ci.github-actions.yml) è pronto ma inattivo: l'accesso GitHub disponibile non include il permesso `workflow`. Non sono dichiarati risultati CI.
 

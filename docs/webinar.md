@@ -33,6 +33,8 @@ Il momento centrale è osservabile: l'agente modifica l'applicazione, ma il sist
 
 La durata della fase di correzione va misurata sul modello reale. Se supera lo spazio disponibile, ridurre il contorno o usare la registrazione dichiarata; non sostituire di nascosto la soluzione di riferimento al risultato dell'agente.
 
+Dopo una modifica a `orders.mjs`, riavviare il server della stessa copia di lavoro e riaprire la pagina prima di ripetere il retry: il server carica il modulo all'avvio e conserva gli ordini in memoria. Il semplice refresh del browser non ricarica il codice del server. La [prova live cloud del 13 ottobre](runtime-qualification.md#prova-live-cloud-del-13-ottobre-2026) ha mostrato la correzione nel browser, mentre il task è rimasto `needs_review` per Docker indisponibile. Non usare questa esecuzione per dichiarare pronta la verifica isolata o la parte ibrida nativa.
+
 ## Prompt iniziale
 
 > Nell'app ordini il primo invio può registrare l'ordine e restituire un timeout. Il retry con lo stesso requestId crea un duplicato. Correggi il problema. Le richieste diverse devono restare distinte; i dati non validi vanno rifiutati; il riuso dello stesso identificativo con dati differenti deve essere gestito. Conserva lo stato dell'indagine e verifica la modifica prima di consegnarla.
