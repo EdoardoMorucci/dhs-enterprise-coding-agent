@@ -1,6 +1,6 @@
 # Enterprise Coding Agent Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Deliver an installable DSH company bundle with a reproducible coding workload, persistent task context, externally checked completion and optional native workers.
 
@@ -34,11 +34,11 @@
 
 **Interfaces:** Export `VerificationReport`, `fingerprintWorkspace(workspace)`, and `runVerification({workspace, artifactsDir, mode, timeoutMs?})` from company-verification. Report includes runId, sourceDigest, suiteVersion, isolation (`process` or `docker`), startedAt, completedAt, passed and named checks. Failures cannot claim success. Source fingerprint rejects symlinks and includes all execution inputs. Candidate module `orders.mjs` exports `createOrderStore()`, returning `{create(input), list()}`. Input has requestId, customer and positive integer quantity; identical retries return the original order, conflicting reuse rejects. Store is in-memory and makes no persistence claim.
 
-- [ ] Write and run failing behavioral tests for timeout-after-commit duplicate, distinct requests, validation, conflicting reuse, fingerprints, symlink escape and candidate crashes.
-- [ ] Implement a deliberately buggy seed and correct reference. Verify reference passes and buggy seed fails the same host-owned suite. Keep reference outside copies given to the agent.
-- [ ] Implement snapshot verification with bounded process lifetime/output and deterministic cleanup. Development process mode is explicitly unisolated. Docker mode has no network, read-only root and candidate mount, non-root user, no extra capabilities and resource limits; host owns expected results.
-- [ ] Provide a minimal visible orders demo and reset command that creates a new dedicated workspace without deleting arbitrary existing paths.
-- [ ] Run focused tests, full available suite and typecheck. Commit only task files.
+- [x] Write and run failing behavioral tests for timeout-after-commit duplicate, distinct requests, validation, conflicting reuse, fingerprints, symlink escape and candidate crashes.
+- [x] Implement a deliberately buggy seed and correct reference. Verify reference passes and buggy seed fails the same host-owned suite. Keep reference outside copies given to the agent.
+- [x] Implement snapshot verification with bounded process lifetime/output and deterministic cleanup. Development process mode is explicitly unisolated. Docker mode has no network, read-only root and candidate mount, non-root user, no extra capabilities and resource limits; host owns expected results.
+- [x] Provide a minimal visible orders demo and reset command that creates a new dedicated workspace without deleting arbitrary existing paths.
+- [x] Run focused tests, full available suite and typecheck. Commit only task files.
 
 Example behavioral contract:
 
@@ -55,10 +55,10 @@ assert.notEqual(await fingerprintWorkspace(fixedCopy), report.sourceDigest);
 
 **Interfaces:** `TaskStore(dataDir)` with `create({taskId,objective,criteria,workspace})`, `get(taskId)`, `updateInvestigation(taskId,{hypotheses,pendingChecks})`, `recordVerification(taskId,report)` and `finish(taskId)`. `finish` recomputes the workspace digest, requires the latest successful Docker report, and never accepts a model-supplied report through public agent tools. Serialize writes and persist bounded history atomically. Context builder accepts authoritative TaskState and curated knowledge and returns bounded system context; it is model-independent.
 
-- [ ] Write and run failing tests for cross-task separation, restart recovery, stale evidence, failed or unisolated reports, corrupt storage and oversized context.
-- [ ] Implement JSON-backed local state with safe IDs, atomic writes, schema version, phase, attempts, hypotheses, pending checks and receipt reference. Mark uncertain prior running work as needing reconciliation.
-- [ ] Implement conservative recovery, bounded context and company rules explaining the completion contract.
-- [ ] Run suite/typecheck and commit task files.
+- [x] Write and run failing tests for cross-task separation, restart recovery, stale evidence, failed or unisolated reports, corrupt storage and oversized context.
+- [x] Implement JSON-backed local state with safe IDs, atomic writes, schema version, phase, attempts, hypotheses, pending checks and receipt reference. Mark uncertain prior running work as needing reconciliation.
+- [x] Implement conservative recovery, bounded context and company rules explaining the completion contract.
+- [x] Run suite/typecheck and commit task files.
 
 ```ts
 await store.recordVerification(id, successfulProcessReport);
