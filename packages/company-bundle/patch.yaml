@@ -1,0 +1,7 @@
+- insert:
+    - id: company
+      name: '@company/company-bundle'
+      config:
+        stateRoot: !!js process.env.COMPANY_STATE_ROOT
+        workspace: !!js process.env.COMPANY_WORKSPACE
+        knowledgeRoot: !!js process.env.COMPANY_KNOWLEDGE_ROOT

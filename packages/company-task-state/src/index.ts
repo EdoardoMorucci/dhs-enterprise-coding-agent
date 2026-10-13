@@ -273,6 +273,17 @@ export class TaskStore {
       return this.save(state, 'interruption-reconciled');
     });
   }
+  /** Host-only stopping decision. Does not create evidence, consume attempts or clear reconciliation. */
+  markNeedsReview(taskId: string, reason: string): Promise<TaskState> {
+    return this.serial(async () => {
+      text(reason, 2000);
+      const state = await this.refresh(await this.read(taskId));
+      if (state.phase === 'verifying') throw new Error('Verification is running');
+      state.phase = 'needs_review';
+      state.pendingChecks = [reason, ...state.pendingChecks.filter(check => check !== reason)].slice(0, 20);
+      return this.save(state, 'host-review-required');
+    });
+  }
   /** Trusted host receipt only; never register this method as a model tool. */
   recordVerification(taskId: string, report: VerificationReport): Promise<TaskState> {
     const copy = structuredClone(report);

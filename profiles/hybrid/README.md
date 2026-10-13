@@ -1,0 +1,1 @@
+Hybrid has its own DSH_HOME, configuration, task store and candidate copies. At this stage it exposes the same scoped company workflow as internal. Native orchestration is a later trusted controller extension; no generic delegation tools or native providers are loaded here.
