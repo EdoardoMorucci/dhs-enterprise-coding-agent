@@ -90,13 +90,13 @@ await assert.rejects(store.finish(id), /isolat/i);
 
 ## Task 5: Distribution, integration and handover
 
-**Files:** README.md, docs/{installation,webinar,qualification}.md, evaluations/*, distribution/release-manifest.json, .github/workflows/ci.yml and focused integration tests.
+**Files:** README.md, docs/{installation,webinar,qualification}.md, evaluations/*, distribution/release-manifest.json, distribution/ci.github-actions.yml (inactive template) and focused integration tests.
 
-- [ ] Test installation/configuration from a clean temporary directory and inspect packed artifact contents for credentials or developer paths.
-- [ ] Exercise demo bug and reference, stale receipt, runtime loading, process failures and state recovery. Run Docker and live model checks only when available.
-- [ ] Add cross-platform CI for typecheck/build/tests and packaging. Record exact versions, observed qualification and remaining infrastructure dependencies.
-- [ ] Supply Italian quickstart, reset/recovery and webinar walkthrough; distinguish the seeded demo from real agent runs.
-- [ ] Obtain independent whole-branch review, fix substantial findings, recheck affected behavior and push all completed increments.
+- [x] Test installation/configuration from a clean temporary directory and inspect portable artifact contents for credentials or developer paths; record exact source and artifact provenance.
+- [x] Exercise demo bug and reference, stale receipt, runtime loading, process failures and state recovery. Live Docker/model/native checks remain unqualified when infrastructure is unavailable; opt-in tests are explicitly skipped.
+- [x] Deliver the inactive cross-platform CI template for typecheck/build/tests and packaging, including private scoped-edit Docker qualification. Activation needs GitHub workflow scope; no CI run is claimed. Record exact versions, observed qualification and remaining infrastructure dependencies.
+- [x] Supply Italian quickstart, reset/recovery and webinar walkthrough; distinguish the seeded demo from real agent runs.
+- [x] Obtain independent whole-branch review, fix substantial findings and recheck affected behavior; implementation increments through a864f5a are pushed. Root owns the final documentation push after the corrected artifact audit.
 
 ## Execution rulings
 

@@ -50,7 +50,9 @@ Durante le prove finali due controlli del verificatore hanno passato tutte le as
 
 Il workflow in `distribution/ci.github-actions.yml` include controlli Windows/Linux e una vera installazione portabile. Rimane un template inattivo perché l'accesso GitHub disponibile non ha scope `workflow`; nessuna esecuzione CI viene dichiarata. Il protocollo di valutazione resta privo di risultati di modelli reali e la PR resta in bozza fino alla qualificazione del deployment.
 
-Al termine dell'integrazione finale `pnpm test` passa con **90 test riusciti, zero fallimenti e una prova Docker live esplicitamente saltata**. Typecheck e build dei cinque pacchetti passano. Il runtime SDK esegue sette richieste deterministiche per il task (quattro strumenti e tre arresti), conserva la nota d'indagine e pubblicizza soltanto i sette strumenti interni. La prova Web compone due volte il profilo e verifica il server autenticato. Questi risultati non sono inseriti come tentativi nel benchmark dei modelli.
+Al termine dell'integrazione finale, dopo le correzioni dei confini in `a864f5a`, `pnpm test` passa con **93 test riusciti, zero fallimenti e due prove Docker live esplicitamente saltate**. Le due prove non eseguite riguardano il verificatore Docker sul riferimento/seed e il percorso completo da scrittura di file privati a completamento verificato. Typecheck e build dei cinque pacchetti passano, eseguiti senza sovrapporre installazione o typecheck alla suite. Il runtime SDK esegue sette richieste deterministiche per il task (quattro strumenti e tre arresti), conserva la nota d'indagine e pubblicizza soltanto i sette strumenti interni. La prova Web compone due volte il profilo e verifica il server autenticato. Questi risultati non sono inseriti come tentativi nel benchmark dei modelli.
+
+L'artefatto precedente da `f6bb893` resta una prova storica di installazione e non contiene le ultime correzioni ai confini. Per la consegna usare una ricostruzione dal commit pulito corretto; il rapporto esterno deve indicare `sourceDirty=false`, revisione esatta, inventario e hash del manifest, separatamente dall'artefatto.
 
 ## Decisioni di integrazione
 
@@ -61,6 +63,8 @@ Il profilo interno disabilita anche i servizi DeepSeek ausiliari, oltre al model
 In **rc.2** i provider nativi ricevono la cartella dalla sessione del padre: non esiste l'override `cwd` per singolo incarico presente in versioni successive. Il controller deve creare una sessione padre con la cartella corretta prima di chiamare `ctx.subagents.start`. Questa API consente di avviare il worker direttamente, senza un ulteriore modello che decida di delegare.
 
 Una cartella di lavoro non impone permessi al processo. Il revisore richiede un ambiente qualificato con snapshot montato in sola lettura; fino a quel momento la capacità resta non qualificata. I risultati dei worker vengono controllati anche quando la loro Promise termina senza eccezioni, perché lo stato restituito può segnalare un errore.
+
+La revisione finale ha corretto due confini: verificatore e worker condividono ora l'identità non root, così i file 0600 e le directory 0700 rimangono privati e leggibili dal proprietario; la cattura/fingerprint e il preflight nativo rifiutano i file con più hardlink prima del dispatch. Su Linux serve un utente host non root con daemon locale rootful senza user namespace remapping; su Windows Desktop resta UID/GID 10001 con mapping dei bind da qualificare. Le regressioni di metadati e identità sono riuscite; la nuova prova completa da scrittura aziendale privata a `verified` richiede Linux/Docker ed è esplicitamente opt-in. Non è stata eseguita su questo host. Nessun controllo qualifica un host ostile che muta il filesystem durante la verifica.
 
 ## Fonti
 

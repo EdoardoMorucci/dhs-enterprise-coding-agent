@@ -21,6 +21,10 @@ Per il completamento verificato serve un daemon Docker funzionante e l'immagine 
 docker pull node:24.13.0-alpine
 ```
 
+Verificatore e worker nativi condividono la selezione dell'identità non root. Su Linux serve un daemon locale rootful senza user namespace remapping e il container usa UID/GID dell'utente host non root, con accesso in lettura allo snapshot e al bridge fidato. File 0600 e directory 0700 restano privati: non vengono resi pubblici per consentire la verifica. Windows Desktop usa UID/GID 10001 tramite named pipe; il mapping effettivo dei bind e delle ACL resta da qualificare. Rootless, daemon remoti e identità non supportate vengono rifiutati.
+
+File collegati simbolicamente o con più hardlink vengono rifiutati prima della cattura del candidato e del dispatch nativo. Questo evita che un alias nel candidato riferisca dati esterni. I controlli presuppongono un host fidato; non garantiscono isolamento da un operatore ostile che modifica il filesystem contemporaneamente.
+
 L'installazione iniziale scarica dipendenze. La prova senza Internet richiede che dipendenze, immagine, asset e inferenza siano già disponibili nell'ambiente previsto.
 
 ## Installare il pacchetto compilato
