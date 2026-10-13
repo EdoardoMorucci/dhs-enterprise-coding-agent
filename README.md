@@ -2,7 +2,7 @@
 
 Distribuzione aziendale di [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), con contesto di progetto, stato persistente del lavoro e verifica indipendente dei risultati.
 
-Il profilo interno collega un endpoint esplicito compatibile OpenAI, espone strumenti limitati alla copia di lavoro e conserva lo stato del task. La prima applicazione è una demo ordini con un bug di duplicazione su retry. L'estensione ibrida con Codex e Claude Code è in implementazione nella stessa PR.
+Il profilo interno collega un endpoint esplicito compatibile OpenAI, espone strumenti limitati alla copia di lavoro e conserva lo stato del task. La prima applicazione è una demo ordini con un bug di duplicazione su retry. L'estensione ibrida esegue Codex, verifica indipendente, revisione Claude Code su snapshot e verifica finale attraverso worker Docker sequenziali.
 
 È un prototipo per sviluppatori e IT. Runtime, strumenti e installazione indipendente sono stati provati; una correzione con un modello reale richiede ancora la qualificazione dell'ambiente.
 
@@ -13,6 +13,7 @@ Il profilo interno collega un endpoint esplicito compatibile OpenAI, espone stru
 - [Dove personalizzare il prodotto](docs/customization.md)
 - [Runbook del webinar](docs/webinar.md)
 - [Protocollo di valutazione](evaluations/README.md)
+- [Worker nativi e requisiti di isolamento](packages/company-delegation/README.md)
 - [Ricerca e riferimenti tecnici](docs/research/2026-10-13-harness-research.md)
 
 ## Sviluppo
@@ -43,8 +44,10 @@ Il verificatore indipendente è in `packages/company-verification`. La modalità
 
 - Demo e verificatore: test comportamentali, compilazione e controllo TypeScript verificati su Windows.
 - DSH pubblicato `0.2.0-rc.2`: strumenti eseguiti tramite runtime reale con risposte di protocollo controllate, avvio web autenticato e preset osservato nel browser; [dettagli e limiti](docs/runtime-qualification.md).
-- Pacchetto compilato: installato ed eseguito in una directory temporanea esterna al repository. Congelamento del lock e audit finale della distribuzione ancora in corso.
+- Pacchetto compilato: lock npm mantenuto nella distribuzione, inventario con hash e installazione tramite `npm ci`; [procedura e risultati](docs/runtime-qualification.md).
 - Modello interno, worker autenticati e isolamento Docker: qualificazione sull'ambiente finale ancora necessaria.
 - Il [workflow CI](distribution/ci.github-actions.yml) è pronto ma inattivo: l'accesso GitHub disponibile non include il permesso `workflow`. Non sono dichiarati risultati CI.
 
 L'implementazione procede per incrementi verificati. Credenziali, directory dati del runtime, dipendenze installate e copie di lavoro della demo restano fuori da Git.
+
+Per produrre il runtime compilato usare `pnpm package:runtime`; per verificarne una vera installazione esterna usare `pnpm qualify:runtime`. Il pacchetto include istruzioni, asset e lock, senza richiedere pnpm al consumatore. `company_task_note` conserva ipotesi e controlli pendenti della sessione senza modificare l'autorità delle verifiche.

@@ -41,7 +41,7 @@ La suite verifica il contratto del modulo ordini; la pagina rende visibile il di
 
 ## Le tre personalizzazioni da aprire nel codice
 
-1. **Contesto e memoria:** mostrare una convenzione in `company-knowledge`, poi lo schema del task e il contesto limitato che viene reinserito prima del passo dell'agente. Spiegare come si sostituiscono gli esempi con documenti curati del team.
+1. **Contesto e memoria:** mostrare una convenzione in `company-knowledge`, poi `company_task_note`, lo schema del task e il contesto limitato che viene reinserito prima del passo dell'agente. Le note aggiungono ipotesi e controlli, conservando i motivi autorevoli dell'host. Spiegare come si sostituiscono gli esempi con documenti curati del team.
 2. **Strumenti e consegna:** mostrare il registro ristretto, il verificatore esterno e il controllo su digest, tentativo ed esito. La risposta del modello e lo stato `verified` sono due informazioni diverse.
 3. **Delega opzionale:** mostrare la sequenza controllata e il confine del container del revisore. Il servizio esterno riceve il materiale della demo ibrida: questa parte non fa parte della promessa di inferenza interna.
 

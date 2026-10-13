@@ -7,11 +7,12 @@
     "node": ">=24.13.0 <25"
   },
   "scripts": {
-    "test": "pnpm build && pnpm -r test",
+    "test": "pnpm build && pnpm -r test && node --test distribution/packaging.test.mjs",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",
     "company-agent": "node scripts/company-agent.mjs",
     "package:runtime": "pnpm build && node distribution/build.mjs",
+    "qualify:runtime": "pnpm build && node distribution/qualify.mjs",
     "demo:reset": "node scripts/demo.mjs reset",
     "demo:start": "node scripts/demo.mjs start"
   },

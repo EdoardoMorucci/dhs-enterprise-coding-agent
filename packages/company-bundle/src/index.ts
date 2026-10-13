@@ -11,7 +11,7 @@ declare module '@deepseek-ai/dsh-llm' { interface MessageSourceMap { company: { 
 export const name = 'company';
 export const inject = ['tools', 'agents', 'systemPrompt'];
 export type Config = { stateRoot: string; workspace: string; knowledgeRoot: string; delegation?: ControllerConfig['delegation'] };
-export const COMPANY_TOOLS = ['company_task_start', 'company_task_state', 'company_read_file', 'company_write_file', 'company_verify', 'company_finish'];
+export const COMPANY_TOOLS = ['company_task_start', 'company_task_state', 'company_task_note', 'company_read_file', 'company_write_file', 'company_verify', 'company_finish'];
 export async function apply(ctx: Context, config: Config): Promise<void> {
   if (!config.stateRoot || !config.workspace || !config.knowledgeRoot) throw new Error('Explicit company state, workspace and knowledge paths required');
   const knowledge = await Promise.all(['completion-contract.md', 'order-conventions.md'].map(async title => ({ title, text: await readFile(resolve(config.knowledgeRoot, title), 'utf8') })));
@@ -26,6 +26,8 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     async execute(args, exec) { return controller.serial(async () => JSON.stringify(await controller.start(session(exec), args.objective, args.criteria))); } }));
   ctx.tools.register(defineTool({ name: 'company_task_state', description: 'Read fresh authoritative task state and evidence for this session.', parameters: {}, output,
     async execute(_args, exec) { return controller.serial(async () => JSON.stringify(await controller.hydrate(session(exec)))); } }));
+  ctx.tools.register(defineTool({ name: 'company_task_note', description: 'Append one investigation hypothesis or pending check for this session; maximum 500 characters and 20 entries per list. Cannot change authority or clear host reasons.', parameters: { kind: { type: 'string', required: true, enum: ['hypothesis', 'pending_check'] }, text: { type: 'string', required: true } }, output,
+    async execute(args, exec) { return controller.serial(async () => JSON.stringify(await controller.note(session(exec), args.kind, args.text))); } }));
   ctx.tools.register(defineTool({ name: 'company_read_file', description: 'Read one UTF-8 file relative to this task candidate; maximum 256 KiB.', parameters: { path: { type: 'string', required: true } }, output,
     async execute(args, exec) { return controller.serial(() => controller.read(session(exec), args.path)); } }));
   ctx.tools.register(defineTool({ name: 'company_write_file', description: 'Write one UTF-8 candidate file. Relative slash paths only; source edits invalidate evidence.', parameters: { path: { type: 'string', required: true }, content: { type: 'string', required: true } }, output,

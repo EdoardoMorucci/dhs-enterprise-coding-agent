@@ -25,6 +25,8 @@ Il contesto dà priorità a obiettivo, criteri, fase, tentativi, evidenze e veri
 
 Le convenzioni fornite sono esempi della demo. Il team deve assegnare un responsabile e una versione ai documenti usati realmente. Per il primo pilot conviene selezionare pochi documenti attendibili e aggiornati; una ricerca documentale più ampia potrà essere aggiunta quando esiste un problema concreto di selezione.
 
+Per la memoria scrivibile usare il percorso ristretto `company_task_note`: ipotesi e controlli vengono aggiunti, con limiti e controllo del contesto prima del salvataggio. `TaskStore.updateInvestigation` è un'API host più ampia e non va esposta direttamente al modello. Note, identità della sessione e autorità di verifica devono restare separate.
+
 ## Modificare strumenti e verifica
 
 Ogni nuovo strumento amplia ciò che il modello può chiedere al prodotto di fare. La sua implementazione deve ricevere dal runtime l'identità della sessione e il workspace autorizzato; il modello fornisce soltanto gli argomenti dell'operazione. Le operazioni che producono attestazioni rimangono di proprietà dell'host.
@@ -38,3 +40,9 @@ Cambiare la suite richiede una nuova qualificazione del difetto e della soluzion
 La versione iniziale è fissata a `0.2.0-rc.2`. Prima di un aggiornamento controllare API dei plugin, comportamento dei preset, middleware, provider e formato delle sessioni. Eseguire caricamento del runtime reale, prove degli strumenti e installazione pulita dell'artefatto. Le API dei sorgenti master possono differire da quelle pubblicate: mantenere coerente la famiglia di pacchetti scelta.
 
 Separare l'aggiornamento del programma da quello dei dati. Conservare backup e versione della distribuzione precedente; quando cambia uno schema, fornire una migrazione esplicita oppure mantenere separati i vecchi dati. Non correggere a mano i flag di un task per far apparire riuscita una verifica.
+
+## Aggiornare il lock portabile
+
+`distribution/runtime-package-lock.json` è il lock mantenuto del consumatore; il worker Linux ha un lock distinto in `packages/company-delegation/runtime`. Dopo un cambiamento intenzionale delle dipendenze compilare e usare `node distribution/build.mjs --prepare-lock`: il risultato è una directory preparatoria, senza manifest di consegna. In quella directory eseguire `npm install --package-lock-only --include=optional --ignore-scripts --no-audit --no-fund`, quindi riportare il solo `package-lock.json` nel lock mantenuto. Esaminare versioni, URL e integrità prima del commit. Il normale builder non risolve nuove dipendenze.
+
+Aggiornare separatamente il lock worker, conservando le dipendenze native opzionali Linux. Eseguire poi `pnpm test` e `pnpm qualify:runtime`; per qualificare il worker serve anche l'effettivo build/run Linux nell'ambiente previsto. La generazione di un lock su Windows non dimostra quest'ultima prova.

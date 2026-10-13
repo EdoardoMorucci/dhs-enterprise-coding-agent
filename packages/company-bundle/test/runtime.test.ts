@@ -21,7 +21,8 @@ test('actual rc.2 CLI composition and deterministic protocol fixture invoke scop
     const key = noTask ? 'chat' : 'task'; const count = (sessionCalls.get(key) ?? 0) + 1; sessionCalls.set(key, count);
     const call = !noTask && count === 1 ? { name: 'company_task_start', arguments: JSON.stringify({ objective: 'Fixture repair', criteria: ['Host acceptance must pass'] }) }
       : !noTask && count === 2 ? { name: 'company_write_file', arguments: JSON.stringify({ path: 'note.txt', content: 'fixture-owned candidate text' }) }
-      : !noTask && count === 3 ? { name: 'company_read_file', arguments: JSON.stringify({ path: '../escape' }) } : null;
+      : !noTask && count === 3 ? { name: 'company_task_note', arguments: JSON.stringify({ kind: 'hypothesis', text: 'Persisted protocol investigation' }) }
+      : !noTask && count === 4 ? { name: 'company_read_file', arguments: JSON.stringify({ path: '../escape' }) } : null;
     response.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const chunk = (delta: unknown, finish_reason: string | null = null) => response.write(`data: ${JSON.stringify({ id: `fixture-${requests.length}`, object: 'chat.completion.chunk', created: 1, model: 'deterministic-protocol-fixture', choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     chunk({ role: 'assistant', ...(call ? { tool_calls: [{ index: 0, id: `call-${count}`, type: 'function', function: call }] } : { content: noTask ? 'Fixture human chat.' : 'Fixture claims done without evidence.' }) });
@@ -45,16 +46,17 @@ test('actual rc.2 CLI composition and deterministic protocol fixture invoke scop
     const task = await harness.run('task-fixture: exercise the deterministic company flow');
     assert.deepEqual((harness.client as any).stderrTail, [], 'actual runtime must activate the company plugin without warnings');
     assert.ok(task.events.length > 0); assert.equal(await readFile(join(candidate, 'note.txt'), 'utf8'), 'fixture-owned candidate text');
-    assert.equal(sessionCalls.get('task'), 6, 'three tool requests, initial stop, then exactly two repair stops');
+    assert.equal(sessionCalls.get('task'), 7, 'four tool requests, initial stop, then exactly two repair stops');
     const files = await readdir(join(paths.state, 'tasks'));
     const state = JSON.parse(await readFile(join(paths.state, 'tasks', files.find(name => name.endsWith('.json'))!), 'utf8'));
     assert.equal(state.phase, 'needs_review'); assert.equal(state.attempts, 0); assert.match(state.pendingChecks.join(' '), /limit reached/);
+    assert.deepEqual(state.hypotheses, ['Persisted protocol investigation']);
     const chat = await harness.run('chat-without-task'); assert.match(chat.finalResponse, /human chat/); assert.equal(sessionCalls.get('chat'), 1);
     const guardProof = JSON.parse(await readFile(proof, 'utf8')); assert.equal(guardProof.executed, false); assert.match(JSON.stringify(guardProof.result), /Enterprise profile permits only/);
     const before = requests.length; await harness.run('reject-by-host-fixture'); assert.equal(requests.length, before, 'company middleware must preserve other host rejection');
     for (const request of requests) {
       const names = request.tools.map((tool: any) => tool.function.name);
-      assert.equal(names.length, 6); assert.ok(names.every((name: string) => name.startsWith('company_')), names.join(','));
+      assert.equal(names.length, 7); assert.ok(names.every((name: string) => name.startsWith('company_')), names.join(','));
     }
     assert.ok(requests.some(request => JSON.stringify(request.messages).includes('Reserved or escaping candidate path')));
     assert.ok(requests.some(request => JSON.stringify(request.messages).includes('Fixture repair')));

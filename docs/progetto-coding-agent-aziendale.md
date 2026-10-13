@@ -356,6 +356,8 @@ L'implementazione usa il launcher aziendale e pacchetti DSH pubblicati e fissati
 
 Usare il launcher per mantenere directory dati e configurazioni separate. Le configurazioni native del runtime vengono generate dall'applicazione: esempi dei sorgenti master o comandi di installazione manuale dei provider non sostituiscono la sequenza qualificata della release scelta.
 
+Il pacchetto compilato si produce con `pnpm package:runtime` e si installa con `npm ci` usando il lock mantenuto. `pnpm qualify:runtime` verifica una vera copia esterna al checkout. I profili `internal` e `hybrid` hanno homes distinte; `status` legge una fotografia senza rivalidare il digest. `demo reset` conserva le copie precedenti. Ripresa, riconciliazione nativa, backup e limiti di migrazione sono descritti nella guida operativa; cambiare candidato non migra una sessione esistente.
+
 La [guida alle personalizzazioni](customization.md) collega le esigenze aziendali ai moduli da modificare. Il [runbook del webinar](webinar.md) descrive le azioni sullo schermo, mentre il [protocollo di valutazione](../evaluations/README.md) distingue misure dell'agente e test dei componenti.
 
 La ricerca di supporto è disponibile in [docs/research/2026-10-13-harness-research.md](research/2026-10-13-harness-research.md). Lo [stato della qualificazione](runtime-qualification.md) prevale su qualsiasi obiettivo futuro descritto in questa roadmap.

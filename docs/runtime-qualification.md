@@ -1,4 +1,4 @@
-# Qualificazione iniziale del runtime
+# Qualificazione del runtime e della distribuzione
 
 13 ottobre 2026. Questa scheda registra prove effettuate sul runtime pubblicato, separatamente dalle prove del nostro agente.
 
@@ -8,6 +8,7 @@
 - pnpm: 10.30.1.
 - Famiglia di pacchetti DSH: **0.2.0-rc.2**, senza mescolare pacchetti alpha.
 - Cordis: 4.0.4.
+- npm del consumatore: 11.12.0; Codex worker 0.153.4 e Claude Agent SDK 0.3.263.
 
 Il ramo master DSH esaminato è `d743267388641bc76f17c45ce8b4c231aed1d32c`, versione 0.2.1-alpha.2. Alcuni esempi di quel ramo usano interfacce diverse dalla release scelta. Per implementare il bundle sono stati controllati anche JavaScript, dichiarazioni TypeScript e README dei tarball pubblicati.
 
@@ -20,10 +21,12 @@ Il ramo master DSH esaminato è `d743267388641bc76f17c45ce8b4c231aed1d32c`, vers
 | Creazione di un profilo dal template web | Riuscita: manifest generato con bundle base e web-app |
 | Composizione configurazione SDK minima | Riuscita |
 | Composizione web con endpoint locale e provider DeepSeek predefiniti disabilitati | Riuscita |
-| Bundle aziendale nel runtime SDK reale | Riuscita con server SSE di test deterministico: sei strumenti, accesso fuori workspace rifiutato, due richieste di correzione e stato persistente `needs_review` |
+| Bundle aziendale nel runtime SDK reale | Fixture SSE deterministica con strumenti di sessione, note persistenti, accesso fuori workspace rifiutato, due richieste di correzione e stato `needs_review`; il catalogo interno finale ha sette strumenti |
 | Avvio ripetuto del profilo Web | Riuscito: composizione ripetuta e server HTTP autenticato; corretta l'opzione ammessa solo alla prima creazione del profilo |
 | UI Web nel browser | Osservata: avviso preview, preset Company evidence workflow e modello esplicitamente configurato; nessun prompt di inferenza inviato |
-| Installazione compilata fuori dal repository | Riuscita in directory temporanea con 542 dipendenze npm, quattro moduli aziendali compilati, runtime e bridge del verificatore; lock finale dell'artefatto da congelare |
+| Installazione compilata fuori dal repository | Riuscita tramite vero `npm ci`: 543 pacchetti, cinque moduli compilati e subpath Docker, due composizioni DSH, verifica del seed senza isolamento e ripresa delle note |
+| Lock e contenuti della distribuzione | Lock portabile mantenuto, lock worker con dipendenze opzionali Linux, manifest con schema/suite/versioni e hash; inventario controllato prima e dopo installazione e alterazione del seed rifiutata |
+| Bootstrap worker DSH compilato senza credenziali | Restituisce `AUTH_UNAVAILABLE` attraverso la CLI reale; non è una richiesta autenticata o una prova di inferenza |
 | Esportazione dello schema della configurazione web | Fallita su quattro righe native del runtime; non usata come criterio di riuscita del nostro bundle |
 | Inferenza reale del modello interno | Non eseguita: endpoint e modello da configurare |
 | Delega nativa autenticata | Non eseguita in questa qualificazione |
@@ -36,6 +39,18 @@ Le richieste SSE controllate verificano il collegamento fra adapter, loop DSH e 
 Al termine dell'integrazione iniziale: 56 test superati e una prova Docker live esplicitamente saltata; typecheck e build riusciti. Le due regressioni successive sui confini dei percorsi portano la suite del bundle da sei a otto test, tutti superati. La revisione indipendente ha verificato anche la correzione del riutilizzo di vecchie ricevute e delle varianti maiuscole di `.git` su Windows.
 
 La diagnosi locale successiva mostra le distribuzioni WSL ferme e un errore del backend Docker relativo al listener `dockerInference` (`The file cannot be accessed by the system`). Non sono stati eseguiti reset di Docker, cancellazioni dei suoi dati o modifiche alle impostazioni globali. Questo impedimento riguarda l'ambiente di qualificazione; il percorso non isolato di sviluppo non lo sostituisce ai fini del completamento verificato.
+
+## Distribuzione e controlli finali
+
+`pnpm qualify:runtime` costruisce l'artefatto, lo copia fuori dal checkout e installa dal lock mediante `npm ci --omit=dev --include=optional --ignore-scripts`. Mantiene `qualification.json` accanto al runtime con percorso effettivo, hash dell'inventario e dei lock, commit e indicazione di sorgente modificato. Il manifest non è una firma: conservarlo insieme al rapporto dell'artefatto verificato. La prova è su Windows; l'immagine worker Linux non è stata costruita o eseguita su questo host.
+
+La qualificazione verifica import di moduli compilati, configurazione DSH reale, rifiuto comportamentale del seed in modalità process e note dopo reload. Non esegue un modello, una delega autenticata o l'accettazione Docker. Non prova l'installazione senza rete; dipendenze e payload vengono scaricati prima del possibile deployment offline.
+
+Durante le prove finali due controlli del verificatore hanno passato tutte le aspettative applicative ma fallito la conferma di cleanup Windows. `taskkill` su processi sintetici pronti ha impiegato 1,7–3,0 secondi in prove separate; il vecchio limite di tre secondi era troppo vicino al costo osservato. I file di test sono ora serializzati e il comando di cleanup ha un budget finito di dieci secondi, richiedendo ancora un exit zero osservato. Una regressione reale con successo ritardato oltre tre secondi passa; timeout ed exit nonzero restano fallimenti. Il timeout del candidato, i limiti di output e il drenaggio finale di tre secondi restano invariati.
+
+Il workflow in `distribution/ci.github-actions.yml` include controlli Windows/Linux e una vera installazione portabile. Rimane un template inattivo perché l'accesso GitHub disponibile non ha scope `workflow`; nessuna esecuzione CI viene dichiarata. Il protocollo di valutazione resta privo di risultati di modelli reali e la PR resta in bozza fino alla qualificazione del deployment.
+
+Al termine dell'integrazione finale `pnpm test` passa con **90 test riusciti, zero fallimenti e una prova Docker live esplicitamente saltata**. Typecheck e build dei cinque pacchetti passano. Il runtime SDK esegue sette richieste deterministiche per il task (quattro strumenti e tre arresti), conserva la nota d'indagine e pubblicizza soltanto i sette strumenti interni. La prova Web compone due volte il profilo e verifica il server autenticato. Questi risultati non sono inseriti come tentativi nel benchmark dei modelli.
 
 ## Decisioni di integrazione
 

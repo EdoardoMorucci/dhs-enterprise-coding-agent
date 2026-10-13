@@ -31,6 +31,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm -r build
       - run: pnpm test
+      - name: Frozen portable build and external npm ci smoke
+        run: node distribution/qualify.mjs
 
   isolated-verifier:
     runs-on: ubuntu-latest

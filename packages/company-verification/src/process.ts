@@ -4,10 +4,11 @@ export type Reply = { ok: boolean; value?: unknown; error?: string };
 type Pending = { id: number; resolve(reply: Reply): void; reject(error: Error): void };
 const OUTPUT_LIMIT = 64 * 1024;
 
-async function boundedCommand(command: string, args: string[]): Promise<boolean> {
+/** Internal cleanup seam; only observed exit zero confirms termination. */
+export async function boundedCleanupCommand(command: string, args: string[], timeoutMs = 10000): Promise<boolean> {
   return new Promise(resolve => {
     const child = spawn(command, args, { stdio: 'ignore', windowsHide: true });
-    const timer = setTimeout(() => { child.kill('SIGKILL'); resolve(false); }, 3000);
+    const timer = setTimeout(() => { child.kill('SIGKILL'); resolve(false); }, timeoutMs);
     child.once('error', () => { clearTimeout(timer); resolve(false); });
     child.once('close', code => { clearTimeout(timer); resolve(code === 0); });
   });
@@ -94,12 +95,12 @@ export class CandidateProcess {
     if (containerName) {
       this.shutdownRequested = true;
       this.dockerShutdownRequested = true;
-      dockerCleanupFailed = !await boundedCommand('docker', ['rm', '-f', containerName]);
+      dockerCleanupFailed = !await boundedCleanupCommand('docker', ['rm', '-f', containerName]);
     }
     if (process.platform === 'win32' && this.child.pid) {
       const running = this.child.exitCode === null && this.child.signalCode === null;
       this.shutdownRequested = true;
-      treeCleanupFailed = !await boundedCommand('taskkill', ['/pid', String(this.child.pid), '/T', '/F']) && running;
+      treeCleanupFailed = !await boundedCleanupCommand('taskkill', ['/pid', String(this.child.pid), '/T', '/F']) && running;
     } else if (this.child.pid) {
       this.shutdownRequested = true;
       try { process.kill(-this.child.pid, 'SIGKILL'); } catch (error) {

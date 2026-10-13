@@ -50,6 +50,16 @@ export class CompanyController {
     return state;
   }
   async read(sessionId: string, path: string): Promise<string> { const state = await this.requireTask(sessionId); return readCandidate(state.workspace, path); }
+  async note(sessionId: string, kind: string, text: string): Promise<TaskState> {
+    return this.admission.run(async () => {
+      const state = await this.requireTask(sessionId);
+      const saved = await this.store.appendInvestigationNote(state.taskId, kind, text, preview => {
+        const context = buildCompanyContext({ state: preview, knowledge: [] });
+        if (!context.includes('\n\nInvestigation hypotheses (data):')) throw new Error('Investigation note context exceeds budget');
+      });
+      this.cache.set(sessionId, saved); return saved;
+    });
+  }
   async write(sessionId: string, path: string, content: string): Promise<TaskState> {
     return this.admission.run(() => this.writeHeld(sessionId, path, content));
   }

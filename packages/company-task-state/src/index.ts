@@ -245,6 +245,20 @@ export class TaskStore {
       return this.save(state, 'investigation-updated');
     });
   }
+  /** Append-only model data. The trusted host validates its context budget before persistence. */
+  appendInvestigationNote(taskId: string, kind: string, note: string, validateContext: (state: TaskState) => void): Promise<TaskState> {
+    return this.serial(async () => {
+      if (kind !== 'hypothesis' && kind !== 'pending_check') throw new Error('Invalid note kind');
+      text(note, 500);
+      const state = await this.refresh(await this.read(taskId));
+      if (state.phase === 'verifying') throw new Error('Verification is running');
+      const notes = kind === 'hypothesis' ? state.hypotheses : state.pendingChecks;
+      if (notes.length >= 20) throw new Error('Investigation note count limit reached');
+      notes.push(note);
+      validateContext(structuredClone(state));
+      return this.save(state, 'investigation-note-appended');
+    });
+  }
   beginVerification(taskId: string): Promise<TaskState> {
     return this.serial(async () => {
       const state = await this.refresh(await this.read(taskId));
