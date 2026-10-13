@@ -3,6 +3,7 @@ import { lstat, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { UncertainOutcome, type WorkerCall, type WorkerResult } from './index.ts';
 import { parseRequest, parseTerminal, type WorkerRequest } from './protocol.ts';
+import { checkBindPermissions, currentHostIdentity, selectWorkerIdentity, type HostIdentity, type WorkerIdentity } from './identity.ts';
 export { parseTerminal } from './protocol.ts';
 export type DockerConfig = { image: string; writerCredential: string; reviewerCredential: string; timeoutMs?: number };
 export type Transport = (args: string[], input?: string, signal?: AbortSignal, timeoutMs?: number) => Promise<{ code: number; stdout: string }>;
@@ -31,17 +32,23 @@ async function canonical(path: string, file: boolean): Promise<string> {
 }
 type Inspection = { Name: string; Image: string; Config: { User: string; Labels: Record<string, string> }; HostConfig: { ReadonlyRootfs: boolean; Privileged: boolean; CapDrop: string[]; SecurityOpt: string[]; NetworkMode: string; PidMode: string; IpcMode: string; Devices: unknown[] | null; Binds: unknown[] | null; Tmpfs: Record<string, string> }; Mounts: { Type: string; Source: string; Destination: string; RW: boolean }[]; State: { Running: boolean; Status: string; ExitCode: number; OOMKilled: boolean; Error: string } };
 export class DockerAdapter {
-  readonly identity: { image: string; writerCredential: string; reviewerCredential: string };
-  constructor(readonly config: DockerConfig, private readonly command: Transport = dockerCommand) {
+  readonly identity: { image: string; writerCredential: string; reviewerCredential: string; workerIdentity: WorkerIdentity };
+  constructor(readonly config: DockerConfig, private readonly command: Transport = dockerCommand, host: HostIdentity = currentHostIdentity()) {
     if (!/^(?:[a-z0-9][a-z0-9./:_-]*@)?sha256:[a-f0-9]{64}$/.test(config.image)) throw new Error('Native image must be an immutable sha256 identity');
     if (config.timeoutMs !== undefined && (!Number.isSafeInteger(config.timeoutMs) || config.timeoutMs < 1 || config.timeoutMs > 1800000)) throw new Error('Invalid native deadline');
-    this.identity = { image: config.image, writerCredential: config.writerCredential, reviewerCredential: config.reviewerCredential };
+    this.identity = { image: config.image, writerCredential: config.writerCredential, reviewerCredential: config.reviewerCredential, workerIdentity: selectWorkerIdentity(host) };
   }
   private async localImage(signal?: AbortSignal): Promise<string> {
     const context = await this.command(['context', 'inspect'], undefined, signal); if (context.code !== 0) throw new Error('Local Docker context unavailable');
     const endpoint = JSON.parse(context.stdout)?.[0]?.Endpoints?.docker?.Host;
     // Explicit environment hosts override context; both must be local transports.
     if (!/^(unix:\/\/|npipe:\/\/)/.test(endpoint ?? '') || (process.env.DOCKER_HOST && !/^(unix:\/\/|npipe:\/\/)/.test(process.env.DOCKER_HOST))) throw new Error('Remote Docker contexts are unsupported');
+    const effectiveEndpoint = process.env.DOCKER_HOST ?? endpoint;
+    if (!(this.identity.workerIdentity.policy === 'linux-host' ? /^unix:\/\// : /^npipe:\/\//).test(effectiveEndpoint)) throw new Error('Native identity requires local rootful Linux Docker or Windows Docker Desktop named-pipe transport');
+    const security = await this.command(['info', '--format', '{{json .SecurityOptions}}'], undefined, signal);
+    if (security.code !== 0) throw new Error('Docker identity mapping information unavailable');
+    const securityOptions: unknown = JSON.parse(security.stdout);
+    if (!Array.isArray(securityOptions) || !securityOptions.every(value => typeof value === 'string') || securityOptions.some(value => /rootless|userns/i.test(value))) throw new Error('Rootless or user-namespace Docker mapping is unsupported for native bind permissions; use local rootful Docker as a non-root host user');
     const inspected = await this.command(['image', 'inspect', this.config.image], undefined, signal);
     if (inspected.code !== 0) throw new Error('Pinned Linux native worker image unavailable; build and select its immutable identity');
     const image = JSON.parse(inspected.stdout)?.[0];
@@ -49,7 +56,9 @@ export class DockerAdapter {
     return image.Id;
   }
   async preflight(signal: AbortSignal): Promise<void> {
-    signal.throwIfAborted(); await canonical(this.config.writerCredential, true); await canonical(this.config.reviewerCredential, true); await this.localImage(signal);
+    signal.throwIfAborted();
+    for (const credential of [this.config.writerCredential, this.config.reviewerCredential]) await checkBindPermissions(await canonical(credential, true), this.identity.workerIdentity, 'credential');
+    await this.localImage(signal);
   }
   private async inspect(name: string): Promise<Inspection> {
     const result = await this.command(['inspect', name]); if (result.code !== 0) throw new UncertainOutcome('Container inspect unavailable; reconciliation required');
@@ -57,8 +66,9 @@ export class DockerAdapter {
   }
   private validate(info: Inspection, call: WorkerCall, image: string, cwd: string, auth: string): void {
     const host = info.HostConfig;
+    const { uid, gid } = this.identity.workerIdentity;
     const expected = [{ path: cwd, target: '/workspace', rw: call.role === 'writer' }, { path: auth, target: '/run/native-auth.json', rw: false }];
-    if (info.Image !== image || info.Config.User !== '10001:10001' || info.Config.Labels?.['company.run'] !== call.runId || !host.ReadonlyRootfs || host.Privileged || host.CapDrop?.length !== 1 || host.CapDrop[0] !== 'ALL' || !host.SecurityOpt?.includes('no-new-privileges') || host.NetworkMode !== 'bridge' || host.PidMode || host.IpcMode !== 'private' || host.Devices?.length || host.Binds?.length || Object.keys(host.Tmpfs ?? {}).join(',') !== '/tmp' || info.Mounts.length !== 2) throw new Error('Native container isolation mismatch');
+    if (info.Image !== image || info.Config.User !== `${uid}:${gid}` || info.Config.Labels?.['company.run'] !== call.runId || !host.ReadonlyRootfs || host.Privileged || host.CapDrop?.length !== 1 || host.CapDrop[0] !== 'ALL' || !host.SecurityOpt?.includes('no-new-privileges') || host.NetworkMode !== 'bridge' || host.PidMode || host.IpcMode !== 'private' || host.Devices?.length || host.Binds?.length || Object.keys(host.Tmpfs ?? {}).join(',') !== '/tmp' || !host.Tmpfs['/tmp']?.split(',').includes(`uid=${uid}`) || !host.Tmpfs['/tmp']?.split(',').includes(`gid=${gid}`) || info.Mounts.length !== 2) throw new Error('Native container isolation mismatch');
     for (const entry of expected) {
       const mount = info.Mounts.find(item => item.Destination === entry.target);
       // Docker Desktop reports canonical Windows sources as host paths or /run/desktop/mnt/host/<drive>/... .
@@ -89,12 +99,15 @@ export class DockerAdapter {
     const cwd = await canonical(call.cwd, false), auth = await canonical(call.role === 'writer' ? this.config.writerCredential : this.config.reviewerCredential, true);
     // Check both references against writer candidate, not just the currently selected credential.
     for (const selected of [this.config.writerCredential, this.config.reviewerCredential]) if (contains(cwd, await canonical(selected, true))) throw new Error('Native credential must be outside the candidate and snapshot');
+    const { uid, gid } = this.identity.workerIdentity;
+    await checkBindPermissions(cwd, this.identity.workerIdentity, call.role);
+    await checkBindPermissions(auth, this.identity.workerIdentity, 'credential');
     const image = await this.localImage(call.signal), name = `company-native-${call.runId}`;
     const deadline = new AbortController(); const timer = setTimeout(() => deadline.abort(), this.config.timeoutMs ?? 300000); const signal = AbortSignal.any([call.signal, deadline.signal]);
     let attempted = false, result: WorkerResult | undefined, failed: unknown;
     try {
       signal.throwIfAborted(); attempted = true;
-      const created = await this.command(['create', '--pull=never', '--name', name, '--label', `company.run=${call.runId}`, '--interactive', '--init', '--read-only', '--user', '10001:10001', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--network', 'bridge', '--ipc', 'private', '--pids-limit', '128', '--memory', '1g', '--cpus', '2', '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m,uid=10001,gid=10001', '--mount', `type=bind,source=${cwd},target=/workspace,${call.role === 'reviewer' ? 'readonly,' : ''}bind-recursive=disabled`, '--mount', `type=bind,source=${auth},target=/run/native-auth.json,readonly,bind-recursive=disabled`, '--workdir', '/workspace', this.config.image, call.provider], undefined, signal);
+      const created = await this.command(['create', '--pull=never', '--name', name, '--label', `company.run=${call.runId}`, '--interactive', '--init', '--read-only', '--user', `${uid}:${gid}`, '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--network', 'bridge', '--ipc', 'private', '--pids-limit', '128', '--memory', '1g', '--cpus', '2', '--tmpfs', `/tmp:rw,nosuid,nodev,size=256m,uid=${uid},gid=${gid}`, '--mount', `type=bind,source=${cwd},target=/workspace,${call.role === 'reviewer' ? 'readonly,' : ''}bind-recursive=disabled`, '--mount', `type=bind,source=${auth},target=/run/native-auth.json,readonly,bind-recursive=disabled`, '--workdir', '/workspace', this.config.image, call.provider], undefined, signal);
       if (created.code !== 0) throw new Error('Native container create failed');
       this.validate(await this.inspect(name), call, image, cwd, auth); signal.throwIfAborted();
       const completed = await this.command(['start', '--attach', '--interactive', name], JSON.stringify(request) + '\n', signal, this.config.timeoutMs ?? 300000);

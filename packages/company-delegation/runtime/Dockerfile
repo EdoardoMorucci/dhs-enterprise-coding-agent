@@ -8,5 +8,6 @@ RUN groupadd --gid 10001 native && useradd --uid 10001 --gid 10001 --no-create-h
 COPY packages/company-delegation/dist ./dist
 COPY packages/company-delegation/runtime/entrypoint.mjs ./runtime/entrypoint.mjs
 ENV NATIVE_WORKER_MODULES=/opt/native-worker/node_modules
+ENV SHELL=/bin/sh
 USER 10001:10001
 ENTRYPOINT ["node", "/opt/native-worker/runtime/entrypoint.mjs"]

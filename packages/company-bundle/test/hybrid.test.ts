@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { configure, profilePatch, profilePaths } from '../../../scripts/company-agent.mjs';
 test('hybrid persists only selected credential references and internal refuses native delegation', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hybrid-config-'));
-  try { const workspace = join(root, 'candidate'); await mkdir(workspace); const credential = join(root, 'auth.json'); await writeFile(credential, '{"private":"do-not-copy"}');
+  try { const workspace = join(root, 'candidate'); await mkdir(workspace); const credential = join(root, 'auth.json'); await writeFile(credential, '{"private":"do-not-copy"}', { mode: 0o600 });
     const options = { root: join(root, 'data'), workspace, endpoint: 'http://localhost:8000/v1', model: 'internal', apiKeyEnv: 'COMPANY_KEY', nativeImage: 'sha256:' + 'a'.repeat(64), writerCredential: credential, reviewerCredential: credential };
     const hybrid = await configure({ ...options, profile: 'hybrid' });
     assert.equal(hybrid.delegation.image, options.nativeImage); assert.doesNotMatch(JSON.stringify(hybrid), /do-not-copy/);

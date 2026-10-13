@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { chmod, lstat, mkdir, open, readFile, readdir, realpath, rename } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fingerprintWorkspace, readWorkspace, digestEntries } from '@company/company-verification';
+import type { WorkerIdentity } from './identity.ts';
 
 export type Provider = 'codex' | 'claude-code';
 export type WorkerCall = { runId: string; provider: Provider; role: 'writer' | 'reviewer'; brief: string; cwd: string; signal: AbortSignal; settled?: () => Promise<void> };
 export type WorkerResult = { text: string; stopReason: string };
-export type Adapter = { preflight(signal: AbortSignal): Promise<void>; run(request: WorkerCall): Promise<WorkerResult>; identity?: { image: string; writerCredential: string; reviewerCredential: string } };
+export type Adapter = { preflight(signal: AbortSignal): Promise<void>; run(request: WorkerCall): Promise<WorkerResult>; identity?: { image: string; writerCredential: string; reviewerCredential: string; workerIdentity?: WorkerIdentity } };
 export class UncertainOutcome extends Error { override name = 'UncertainOutcome'; }
 export type Task = { taskId: string; workspace: string; objective: string; criteria: string[]; attempts: number; reconciliationRequired: boolean };
 export type Journal = { version: 1; id: string; taskId: string; workspace: string; status: 'running' | 'completed' | 'failed' | 'uncertain' | 'reconciled'; identity?: Adapter['identity']; events: { event: string; at: string; deadline?: string; runId?: string; provider?: Provider; role?: 'writer' | 'reviewer'; cwd?: string; digest?: string; container?: string }[] };

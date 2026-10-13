@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { TaskStore, type TaskState } from '@company/company-task-state';
 import { runVerification } from '@company/company-verification';
@@ -41,7 +42,13 @@ export class CompanyController {
     const state = await this.store.create({ taskId: taskIdForSession(sessionId), objective, criteria, workspace: this.config.workspace });
     this.cache.set(sessionId, state); return state;
   }
-  async requireTask(sessionId: string): Promise<TaskState> { const state = await this.hydrate(sessionId); if (!state) throw new Error('Start a company task first'); return state; }
+  async requireTask(sessionId: string): Promise<TaskState> {
+    const state = await this.hydrate(sessionId); if (!state) throw new Error('Start a company task first');
+    const canonical = (path: string) => process.platform === 'win32' ? path.toLowerCase() : path;
+    const [persisted, configured] = await Promise.all([realpath(state.workspace), realpath(this.config.workspace)]);
+    if (canonical(persisted) !== canonical(configured)) throw new Error('Persisted task workspace does not match the configured candidate; restore the original workspace or use a new session');
+    return state;
+  }
   async read(sessionId: string, path: string): Promise<string> { const state = await this.requireTask(sessionId); return readCandidate(state.workspace, path); }
   async write(sessionId: string, path: string, content: string): Promise<TaskState> {
     return this.admission.run(() => this.writeHeld(sessionId, path, content));
