@@ -7,7 +7,7 @@ import { assertNoSymlinkAncestors, digestEntries, fingerprintWorkspace, readWork
 import { CandidateProcess } from './process.ts';
 import { runHostSuite, SUITE_VERSION, type VerificationCheck } from './suite.ts';
 
-export { fingerprintWorkspace } from './fingerprint.ts';
+export { fingerprintWorkspace, readWorkspace, digestEntries } from './fingerprint.ts';
 export type { VerificationCheck } from './suite.ts';
 export type VerificationReport = {
   runId: string;

@@ -41,7 +41,15 @@ function validateConfig(input) {
   const port = Number(input.port ?? 3080); if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid loopback web port');
   const contextWindow = Number(input.contextWindow ?? 32768), maxTokens = Number(input.maxTokens ?? 4096);
   if (!Number.isSafeInteger(contextWindow) || !Number.isSafeInteger(maxTokens) || maxTokens < 256 || contextWindow < maxTokens || contextWindow > 2000000) throw new Error('Invalid model capacities');
-  return { version: 1, endpoint: url.href.replace(/\/$/, ''), model: input.model, apiKeyEnv: input.apiKeyEnv, workspace: resolve(input.workspace), port, contextWindow, maxTokens };
+  const selected = input.delegation ?? (input.nativeImage || input.writerCredential || input.reviewerCredential ? { image: input.nativeImage, writerCredential: input.writerCredential, reviewerCredential: input.reviewerCredential } : undefined);
+  let delegation;
+  if (selected) {
+    if (input.profile !== 'hybrid') throw new Error('Native delegation is available only in the hybrid profile');
+    if (!/^(?:[a-z0-9][a-z0-9./:_-]*@)?sha256:[a-f0-9]{64}$/.test(selected.image ?? '')) throw new Error('Native image requires immutable sha256 identity');
+    for (const key of ['writerCredential', 'reviewerCredential']) if (typeof selected[key] !== 'string' || !isAbsolute(selected[key]) || /[,\r\n\0]/.test(selected[key])) throw new Error('Explicit absolute native credential file required');
+    delegation = { image: selected.image, writerCredential: resolve(selected.writerCredential), reviewerCredential: resolve(selected.reviewerCredential) };
+  }
+  return { version: 1, endpoint: url.href.replace(/\/$/, ''), model: input.model, apiKeyEnv: input.apiKeyEnv, workspace: resolve(input.workspace), port, contextWindow, maxTokens, ...(delegation ? { delegation } : {}) };
 }
 function containsPath(parent, child) {
   const part = relative(parent, child);
@@ -76,17 +84,28 @@ async function validateCandidateBoundary(root, workspace) {
 export async function configure(input) {
   const paths = profilePaths(input.root, input.profile); const config = validateConfig(input);
   await validateCandidateBoundary(input.root, config.workspace);
+  await validateNativeCredentials(config);
   const release = await acquireOwnership(input.root, input.profile);
   try { await noLinks(paths.config); await writeFile(paths.config, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 }); } finally { await release(); }
   return config;
 }
-export async function readConfig(root, profile) {
+export async function readConfig(root, profile, checkNativeCredentials = true) {
   const paths = profilePaths(root, profile); await noLinks(paths.config);
   let parsed; try { parsed = JSON.parse(await readFile(paths.config, 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') throw new Error('Profile is not configured. Run company-agent configure --endpoint URL --model ID --api-key-env NAME --workspace PATH'); throw error; }
-  const config = validateConfig(parsed);
+  const config = validateConfig({ ...parsed, profile });
   await validateCandidateBoundary(root, config.workspace);
+  if (checkNativeCredentials) await validateNativeCredentials(config);
   return config;
+}
+async function validateNativeCredentials(config) {
+  if (!config.delegation) return;
+  const candidate = await canonicalPath(config.workspace);
+  for (const path of [config.delegation.writerCredential, config.delegation.reviewerCredential]) {
+    if (containsPath(candidate, await canonicalPath(path))) throw new Error('Native credential must be outside the candidate');
+    await noLinks(path); const info = await lstat(path).catch(() => null);
+    if (!info?.isFile() || info.size < 1 || info.size > 16384) throw new Error('Selected native credential file unavailable or outside size limit');
+  }
 }
 export function childEnvironment(config, home) {
   const keys = ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_CONFIG'];
@@ -109,7 +128,7 @@ export function profilePatch(config, paths, sdk = false) {
     ...(!sdk ? [{ id: 'agent-preset-registry', config: { default: 'company' } }] : []),
     ...(!sdk ? [{ id: 'webserver', config: { host: '127.0.0.1', port: config.port, compression: 'gzip', compressionLevel: 1, compressionThresholdBytes: 1024 } }, { id: 'web-runtime', config: { openBrowser: false, printUrl: true, surfaceContext: true, trustedHosts: ['127.0.0.1', 'localhost'] } }] : []),
     { insert: [...(!sdk ? [{ id: 'preset-company', name: '@deepseek-ai/dsh-agent-preset', config: { id: 'company', name: 'Company evidence workflow', plugins: [] } }] : []),
-      { id: 'company', name: resolve(installRoot, 'packages/company-bundle/dist/index.js').replaceAll('\\', '/'), config: { stateRoot: paths.state, workspace: config.workspace, knowledgeRoot: join(installRoot, 'company-knowledge') } }] }
+      { id: 'company', name: resolve(installRoot, 'packages/company-bundle/dist/index.js').replaceAll('\\', '/'), config: { stateRoot: paths.state, workspace: config.workspace, knowledgeRoot: join(installRoot, 'company-knowledge'), ...(config.delegation ? { delegation: config.delegation } : {}) } }] }
   ];
 }
 export async function prepareProfile(root, profile, config, sdk = false) {
@@ -167,14 +186,15 @@ function parse(argv) {
 export async function main(argv = process.argv.slice(2)) {
   const { positional, flags } = parse(argv); const root = resolve(flags.root || '.company-agent'); const profile = flags.profile || 'internal'; profilePaths(root, profile);
   const command = positional[0]; let result;
-  if (command === 'configure') result = await configure({ root, profile, endpoint: flags.endpoint, model: flags.model, apiKeyEnv: flags['api-key-env'], workspace: flags.workspace, port: flags.port, contextWindow: flags['context-window'], maxTokens: flags['max-tokens'] });
+  if (command === 'configure') result = await configure({ root, profile, endpoint: flags.endpoint, model: flags.model, apiKeyEnv: flags['api-key-env'], workspace: flags.workspace, port: flags.port, contextWindow: flags['context-window'], maxTokens: flags['max-tokens'], nativeImage: flags['native-image'], writerCredential: flags['writer-credential'], reviewerCredential: flags['reviewer-credential'] });
+  else if (command === 'native-reconcile') result = await (await import('./native-reconcile.mjs')).reconcileNative(root, profile, !!flags['acknowledge-partial-changes']);
   else if (command === 'status') result = await status(root, profile);
   else if (command === 'doctor') { result = await (await import('./doctor.mjs')).doctor(root, profile); if (!result.ready) process.exitCode = 1; }
   else if (command === 'start') return start(root, profile, !!flags['dump-config']);
   else if (command === 'demo' && positional[1] === 'reset') { const release = await acquireOwnership(root, profile); try { await noLinks(join(root, 'workspaces', profile)); result = { workspace: await resetDemo(join(root, 'workspaces', profile)), next: 'Pass this workspace to configure; existing tasks and candidates are preserved.' }; } finally { await release(); } }
   else if (command === 'verify') {
     const config = await readConfig(root, profile); const release = await acquireOwnership(root, profile);
-    try { const { runVerification } = await import('../packages/company-verification/dist/index.js'); result = await runVerification({ workspace: config.workspace, artifactsDir: join(profilePaths(root, profile).state, 'cli-receipts'), mode: flags['development-process'] ? 'process' : 'docker' }); result.qualification = flags['development-process'] ? 'UNISOLATED DEVELOPMENT ONLY; cannot complete tasks' : 'Host Docker acceptance evidence; this standalone run is not attached to a session task'; if (!result.passed) process.exitCode = 1; } finally { await release(); }
+    try { const { runVerification } = await import('../packages/company-verification/dist/index.js'); const { CandidateAdmission } = await import('../packages/company-bundle/dist/admission.js'); const admission = new CandidateAdmission(join(root, 'candidate-admission'), config.workspace); result = await admission.run(() => runVerification({ workspace: config.workspace, artifactsDir: join(profilePaths(root, profile).state, 'cli-receipts'), mode: flags['development-process'] ? 'process' : 'docker' })); result.qualification = flags['development-process'] ? 'UNISOLATED DEVELOPMENT ONLY; cannot complete tasks' : 'Host Docker acceptance evidence; this standalone run is not attached to a session task'; if (!result.passed) process.exitCode = 1; } finally { await release(); }
   } else throw new Error('Usage: company-agent configure|doctor|start|demo reset|verify|status [--profile internal|hybrid] [--root PATH]. Configure requires --endpoint URL --model ID --api-key-env NAME --workspace PATH.');
   console.log(JSON.stringify(result, null, 2));
 }

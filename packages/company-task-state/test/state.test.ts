@@ -42,6 +42,14 @@ test('tasks persist independently across a new store and safe ids prevent traver
   for (const taskId of ['../escape', 'CON', 'a/b', 'a.b', '']) await assert.rejects(f.store.get(taskId), /id/i);
 });
 
+test('unknown external writer requires reconciliation and a fresh receipt even if bytes match', async t => {
+  const f = await fixture(t); await f.store.recordVerification('orders', await receipt(f.workspace)); await f.store.finish('orders');
+  await f.store.requireReconciliation('orders', 'Native outcome uncertain');
+  const restarted = new f.TaskStore(f.dataDir); assert.equal((await restarted.get('orders')).reconciliationRequired, true);
+  await restarted.reconcileInterruption('orders'); await assert.rejects(restarted.finish('orders'), /verification/i);
+  assert.equal((await restarted.get('orders')).attempts, 1);
+});
+
 test('running verification stays running on reads and explicit restart reconciliation is conservative', async t => {
   const f = await fixture(t);
   await f.store.beginVerification('orders');

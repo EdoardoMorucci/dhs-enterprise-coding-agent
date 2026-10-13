@@ -2,6 +2,8 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": { "noEmit": false, "rewriteRelativeImportExtensions": true, "declaration": true, "rootDir": "src", "outDir": "dist", "paths": {
     "@company/company-task-state": ["../company-task-state/dist/index.d.ts"],
+    "@company/company-delegation": ["../company-delegation/dist/index.d.ts"],
+    "@company/company-delegation/docker": ["../company-delegation/dist/docker.d.ts"],
     "@company/company-context": ["../company-context/dist/index.d.ts"],
     "@company/company-verification": ["../company-verification/dist/index.d.ts"]
   } },

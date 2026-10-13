@@ -30,6 +30,7 @@ export type CreateTask = Pick<TaskState, 'taskId' | 'objective' | 'criteria' | '
 export type Investigation = Pick<TaskState, 'hypotheses' | 'pendingChecks'>;
 const MAX_STATE_BYTES = 256 * 1024;
 const PHASES: TaskPhase[] = ['investigating', 'repairing', 'verifying', 'needs_review', 'verified', 'failed'];
+const EXTERNAL_VERIFICATION_REQUIRED = 'Fresh verification required after an uncertain external writer';
 
 function safeId(id: unknown): asserts id is string {
   if (typeof id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(id)
@@ -238,7 +239,8 @@ export class TaskStore {
       strings(copy.hypotheses, 20, 2000); strings(copy.pendingChecks, 20, 2000);
       const state = await this.refresh(await this.read(taskId));
       if (state.phase === 'verifying') throw new Error('Verification is running');
-      state.hypotheses = copy.hypotheses; state.pendingChecks = copy.pendingChecks;
+      state.hypotheses = copy.hypotheses; state.pendingChecks = state.pendingChecks.includes(EXTERNAL_VERIFICATION_REQUIRED)
+        ? [EXTERNAL_VERIFICATION_REQUIRED, ...copy.pendingChecks.filter(item => item !== EXTERNAL_VERIFICATION_REQUIRED)].slice(0, 20) : copy.pendingChecks;
       if (!state.reconciliationRequired) state.phase = state.attempts ? 'repairing' : 'investigating';
       return this.save(state, 'investigation-updated');
     });
@@ -261,6 +263,15 @@ export class TaskStore {
       state.phase = 'needs_review'; state.reconciliationRequired = true;
       state.pendingChecks = ['Reconcile interrupted verification; outcome unknown', ...state.pendingChecks].slice(0, 20);
       return this.save(state, 'verification-interrupted');
+    });
+  }
+  /** Host confirms cleanup/outcome reconciliation before starting a fresh run. */
+  requireReconciliation(taskId: string, reason: string): Promise<TaskState> {
+    return this.serial(async () => {
+      text(reason, 2000); const state = await this.refresh(await this.read(taskId));
+      state.phase = 'needs_review'; state.reconciliationRequired = true;
+      state.pendingChecks = [EXTERNAL_VERIFICATION_REQUIRED, reason, ...state.pendingChecks.filter(item => item !== reason && item !== EXTERNAL_VERIFICATION_REQUIRED)].slice(0, 20);
+      return this.save(state, 'external-outcome-uncertain');
     });
   }
   /** Host confirms cleanup/outcome reconciliation before starting a fresh run. */
@@ -297,6 +308,7 @@ export class TaskStore {
       }
       if (state.receiptIndex.some(receipt => receipt.attempt === state.attempts)) throw new Error('Verification attempt already has an associated receipt');
       state.receiptIndex.push({ runId: copy.runId, attempt: state.attempts });
+      state.pendingChecks = state.pendingChecks.filter(item => item !== EXTERNAL_VERIFICATION_REQUIRED);
       state.latestVerification = copy;
       state.latestVerificationAttempt = state.attempts;
       state.receiptReference = `${taskId}.json#latestVerification/${copy.runId}`;
@@ -312,6 +324,7 @@ export class TaskStore {
     return this.serial(async () => {
       const state = await this.refresh(await this.read(taskId));
       if (state.phase === 'verifying' || state.reconciliationRequired) throw new Error('Verification is running or requires reconciliation');
+      if (state.pendingChecks.includes(EXTERNAL_VERIFICATION_REQUIRED)) throw new Error(EXTERNAL_VERIFICATION_REQUIRED);
       const report = state.latestVerification;
       if (!report) throw new Error('Successful verification required');
       if (state.latestVerificationAttempt !== state.attempts) throw new Error('Latest attempt has no completed verification receipt');
